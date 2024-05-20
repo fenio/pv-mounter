@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,9 +31,10 @@ func Clean(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
+	ctx := context.TODO()
 	// List the pod with the PVC name label
 	podClient := clientset.CoreV1().Pods(namespace)
-	podList, err := podClient.List(metav1.ListOptions{
+	podList, err := podClient.List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("pvcName=%s", pvcName),
 	})
 	if err != nil {
@@ -56,7 +58,7 @@ func Clean(namespace, pvcName, localMountPoint string) error {
 	fmt.Printf("Port-forward process for pod %s killed successfully\n", podName)
 
 	// Delete the pod
-	err = podClient.Delete(podName, &metav1.DeleteOptions{})
+	err = podClient.Delete(ctx, podName, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete pod: %v", err)
 	}

@@ -12,23 +12,28 @@ import (
 
 var (
 	KubernetesConfigFlags *genericclioptions.ConfigFlags
+	rootCmd               *cobra.Command
 )
 
-func RootCmd() *cobra.Command {
-	cmd := &cobra.Command{
+func init() {
+	rootCmd = &cobra.Command{
 		Use:   "pv-mounter",
 		Short: "A tool to mount and unmount PVs",
 		Long:  `A tool to mount and unmount PVs using SSHFS.`,
 	}
 
 	if strings.HasPrefix(filepath.Base(os.Args[0]), "kubectl-") {
-		cmd.Use = "kubectl pv-mounter [flags]"
+		rootCmd.Annotations = map[string]string{
+			cobra.CommandDisplayNameAnnotation: "kubectl pv-mounter",
+		}
 	}
 
-	cmd.AddCommand(mountCmd())
-	cmd.AddCommand(cleanCmd())
+	rootCmd.AddCommand(mountCmd())
+	rootCmd.AddCommand(cleanCmd())
+}
 
-	return cmd
+func RootCmd() *cobra.Command {
+	return rootCmd
 }
 
 func InitAndExecute() {

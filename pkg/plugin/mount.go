@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -58,8 +59,9 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
+	ctx := context.TODO()
 	pvcClient := clientset.CoreV1().PersistentVolumeClaims(namespace)
-	pvc, err := pvcClient.Get(pvcName, metav1.GetOptions{})
+	pvc, err := pvcClient.Get(ctx, pvcName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get PVC: %v", err)
 	}
@@ -67,7 +69,7 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 	if pvc.Status.Phase == corev1.ClaimBound {
 		pvName := pvc.Spec.VolumeName
 		pvClient := clientset.CoreV1().PersistentVolumes()
-		pv, err := pvClient.Get(pvName, metav1.GetOptions{})
+		pv, err := pvClient.Get(ctx, pvName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get PV: %v", err)
 		}
@@ -75,7 +77,7 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 		accessModes := pv.Spec.AccessModes
 		for _, mode := range accessModes {
 			if mode == corev1.ReadWriteOnce {
-				pods, err := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+				pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to list pods: %v", err)
 				}
@@ -139,7 +141,7 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 
 	podClient := clientset.CoreV1().Pods(namespace)
 
-	createdPod, err := podClient.Create(pod)
+	createdPod, err := podClient.Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create pod: %v", err)
 	}
@@ -147,7 +149,7 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 	fmt.Printf("Pod %s created successfully\n", createdPod.Name)
 
 	err = wait.PollImmediate(time.Second, 5*time.Minute, func() (bool, error) {
-		pod, err := podClient.Get(podName, metav1.GetOptions{})
+		pod, err := podClient.Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

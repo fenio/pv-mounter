@@ -38,6 +38,10 @@ func BuildKubeClient() (*kubernetes.Clientset, error) {
 
 // Mount mounts a PVC to a local directory
 func Mount(namespace, pvcName, localMountPoint string) error {
+	if _, err := os.Stat(localMountPoint); os.IsNotExist(err) {
+		return fmt.Errorf("local mount point %s does not exist", localMountPoint)
+	}
+
 	rand.Seed(time.Now().UnixNano())
 	suffix := randSeq(5)
 	podName := fmt.Sprintf("volume-exposer-%s", suffix)
@@ -135,10 +139,12 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 
 	podClient := clientset.CoreV1().Pods(namespace)
 
-	_, err = podClient.Create(pod)
+	createdPod, err := podClient.Create(pod)
 	if err != nil {
 		return fmt.Errorf("failed to create pod: %v", err)
 	}
+
+	fmt.Printf("Pod %s created successfully\n", createdPod.Name)
 
 	err = wait.PollImmediate(time.Second, 5*time.Minute, func() (bool, error) {
 		pod, err := podClient.Get(podName, metav1.GetOptions{})
@@ -174,6 +180,8 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 	if err := sshfsCmd.Run(); err != nil {
 		return fmt.Errorf("failed to mount PVC using SSHFS: %v", err)
 	}
+
+	fmt.Printf("PVC %s mounted successfully to %s\n", pvcName, localMountPoint)
 
 	return nil
 }

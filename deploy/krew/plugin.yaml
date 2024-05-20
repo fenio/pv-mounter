@@ -3,13 +3,13 @@ kind: Plugin
 metadata:
   name: pv-mounter
 spec:
-  version: "v0.1.0"
+  version: "v0.0.1"
   platforms:
   - selector:
       matchLabels:
         os: linux
         arch: amd64
-    uri: https://github.com/fenio/pv-mounter/releases/download/v0.1.0/pv-mounter_linux_amd64.tar.gz
+    uri: https://github.com/fenio/pv-mounter/releases/download/v0.0.1/pv-mounter_linux_amd64.tar.gz
     sha256: ""
     files:
     - from: "./pv-mounter"
@@ -21,7 +21,7 @@ spec:
       matchLabels:
         os: darwin
         arch: amd64
-    uri: https://github.com/fenio/pv-mounter/releases/download/v0.1.0/pv-mounter_darwin_amd64.tar.gz
+    uri: https://github.com/fenio/pv-mounter/releases/download/v0.0.1/pv-mounter_darwin_amd64.tar.gz
     sha256: ""
     files:
     - from: "./pv-mounter"
@@ -29,15 +29,14 @@ spec:
     - from: LICENSE
       to: "."
     bin: "pv-mounter"
-  shortDescription: A new plugin
+  shortDescription: mount PVC locally using sshfs
   homepage: https://github.com/fenio/pv-mounter
   caveats: |
     Usage:
-      $ kubectl pv-mounter
+      $ kubectl pv-mounter mount <namespace> <pvc-name> <local-mountpoint>
 
     For additional options:
       $ kubectl pv-mounter --help
-      or https://github.com/fenio/pv-mounter/blob/v0.1.0/doc/USAGE.md
 
   description: |
-    This is a new plugin
+    Plugin that allows to mount PVC locally using sshfs

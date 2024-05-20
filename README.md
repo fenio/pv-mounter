@@ -1,6 +1,8 @@
 # pv-mounter 
 
-A `kubectl` plugin to mount PVC locally using sshfs.
+A tool to locally mount k8s PVCs using sshfs.
+
+Might be used as `kubectl` plugin.
 
 ## Quick Start
 

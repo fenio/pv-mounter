@@ -1,10 +1,10 @@
-project_name: {{ .PluginName }}
+project_name: pv-mounter
 release:
   github:
-    owner: {{ .Owner }}
-    name: {{ .Repo }}
+    owner: fenio
+    name: pv-mounter
 builds:
-  - id: {{ .PluginName }}
+  - id: pv-mounter
     goos:
     - linux
     - windows
@@ -17,12 +17,12 @@ builds:
       - GO111MODULE=on
     main: cmd/plugin/main.go
     ldflags: -s -w
-      -X github.com/{{ .Owner }}/{{ .Repo }}/pkg/version.version=
+      -X github.com/fenio/pv-mounter/pkg/version.version=
 archives:
-  - id: {{ .PluginName }}
+  - id: pv-mounter
     builds:
-    - {{ .PluginName }}
-    name_template: {{ `"{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"` }}
+    - pv-mounter
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
     - goos: windows
       format: zip

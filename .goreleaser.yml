@@ -7,7 +7,6 @@ builds:
   - id: pv-mounter
     goos:
     - linux
-    - windows
     - darwin
     goarch:
     - amd64
@@ -23,6 +22,4 @@ archives:
     builds:
     - pv-mounter
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    format_overrides:
-    - goos: windows
-      format: zip
+

@@ -29,18 +29,6 @@ spec:
     - from: LICENSE
       to: "."
     bin: "pv-mounter"
-  - selector:
-      matchLabels:
-        os: windows
-        arch: amd64
-    uri: https://github.com/fenio/pv-mounter/releases/download/v0.1.0/pv-mounter_windows_amd64.zip
-    sha256: ""
-    files:
-    - from: "/pv-mounter.exe"
-      to: "."
-    - from: LICENSE
-      to: "."
-    bin: "pv-mounter.exe"
   shortDescription: A new plugin
   homepage: https://github.com/fenio/pv-mounter
   caveats: |

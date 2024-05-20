@@ -3,13 +3,38 @@ kind: Plugin
 metadata:
   name: pv-mounter
 spec:
-  version: "v0.0.2"
+  version: "v0.0.4"
   platforms:
   - selector:
       matchLabels:
         os: linux
         arch: amd64
-    uri: https://github.com/fenio/pv-mounter/releases/download/v0.0.2/pv-mounter_linux_amd64.tar.gz
+    uri: https://github.com/fenio/pv-mounter/releases/download/v0.0.4/pv-mounter_linux_amd64.tar.gz
+    sha256: ""
+    files:
+    - from: "./pv-mounter"
+      to: "."
+    - from: LICENSE
+      to: "."
+    bin: "pv-mounter"
+  - selector:
+      matchLabels:
+        os: linux
+        arch: arm64
+    uri: https://github.com/fenio/pv-mounter/releases/download/v0.0.4/pv-mounter_linux_arm64.tar.gz
+    sha256: ""
+    files:
+    - from: "./pv-mounter"
+      to: "."
+    - from: LICENSE
+      to: "."
+    bin: "pv-mounter"
+
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: amd64
+    uri: https://github.com/fenio/pv-mounter/releases/download/v0.0.4/pv-mounter_darwin_amd64.tar.gz
     sha256: ""
     files:
     - from: "./pv-mounter"
@@ -20,8 +45,8 @@ spec:
   - selector:
       matchLabels:
         os: darwin
-        arch: amd64
-    uri: https://github.com/fenio/pv-mounter/releases/download/v0.0.2/pv-mounter_darwin_amd64.tar.gz
+        arch: arm64
+    uri: https://github.com/fenio/pv-mounter/releases/download/v0.0.4/pv-mounter_darwin_arm64.tar.gz
     sha256: ""
     files:
     - from: "./pv-mounter"
@@ -29,6 +54,7 @@ spec:
     - from: LICENSE
       to: "."
     bin: "pv-mounter"
+
   shortDescription: mount PVC locally using sshfs
   homepage: https://github.com/fenio/pv-mounter
   caveats: |

@@ -39,7 +39,7 @@ kubectl pv-mounter clean <namespace> <pvc-name> <local-mountpoint>
 
 ```
 
-In the meantime you can simply grab binaries from [releases](https://github.com/fenio/pv-mounter/releases).
+Or you can simply grab binaries from [releases](https://github.com/fenio/pv-mounter/releases).
 
 ## Demo
 

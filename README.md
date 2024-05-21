@@ -6,6 +6,8 @@ Might be used as `kubectl` plugin.
 
 ## Quick Start
 
+Will start working once https://github.com/kubernetes-sigs/krew-index/pull/3844 is approved.
+
 ```
 kubectl krew install pv-mounter
 

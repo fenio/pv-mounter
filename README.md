@@ -31,8 +31,6 @@ See also demo below.
 
 ## Quick Start
 
-Should start working once https://github.com/kubernetes-sigs/krew-index/pull/3844 is approved.
-
 ```
 kubectl krew install pv-mounter
 

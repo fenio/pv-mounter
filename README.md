@@ -16,4 +16,8 @@ kubectl pv-mounter clean <namespace> <pvc-name> <local-mountpoint>
 
 ```
 
+## Demo
+
+
+![Demo](demo.gif)
 

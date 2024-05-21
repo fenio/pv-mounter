@@ -12,7 +12,7 @@ I published it using Apache-2.0 license cause initial [repository](https://githu
 
 ## Rationale
 
-I often need to copy some files from my [homelab](https://github.com/fluxcd/flux2) which is running on k8s. Having ability to work on these files locally greatly simplifies this task.
+I often need to copy some files from my [homelab](https://github.com/fenio/homelab) which is running on k8s. Having ability to work on these files locally greatly simplifies this task.
 Thus pv-mounter was born to automate that process.
 
 ## What exactly does it do?
@@ -47,9 +47,14 @@ Or you can simply grab binaries from [releases](https://github.com/fenio/pv-moun
 
 ## Limitations
 
-* It's not possible to mount PVC with RWO access mode if it's already mounted somewhere else
+### PVC with RWO access mode already mounted somewhere else
 
-I tried to workaround it by using ephemeral container but unfortunately they're too limited for that task as they can't expose port thus it's not possible to expose SSH port.
+It's not possible to mount such PVC unless it's first unmounted.
+I tried to workaround this by using ephemeral container but unfortunately they're too limited for that task as they can't expose port thus it's not possible to access them with SSHFS.
+
+### Windows
+
+Since I can't test Windows binaries they're now simply not included but I saw there is SSHFS implementation for Windows so in theory this should work.
 
 ## FAQ
 

@@ -55,7 +55,7 @@ spec:
       to: "."
     bin: "pv-mounter"
 
-  shortDescription: Mount PVC locally using sshfs
+  shortDescription: Mount PVC locally using SSHFS
   homepage: https://github.com/fenio/pv-mounter
   description: |
-    Plugin that allows to mount PVC locally using sshfs
+    Plugin that allows to mount PVC locally using SSHFS

@@ -11,7 +11,7 @@ I licensed it using Apache-2.0 license cause initial [repository](https://github
 
 ## Rationale
 
-I often need to copy some files from my [Homelab](https://github.com/fluxcd/flux2) which is running on k8s. Having ability to work on these files locally greatly simplifies this task.
+I often need to copy some files from my [homelab](https://github.com/fluxcd/flux2) which is running on k8s. Having ability to work on these files locally greatly simplifies this task.
 Thus pv-mounter was born to automate that process.
 
 ## What exactly does it do?
@@ -39,6 +39,12 @@ kubectl pv-mounter clean <namespace> <pvc-name> <local-mountpoint>
 ## Demo
 
 ![Demo](demo.gif)
+
+## Limitations
+
+* It's not possible to mount PVC with RWO access mode if it's already mounted somewhere else
+
+I tried to workaround it by using ephemeral container but unfortunately they're too limited for that task as they can't expose port thus it's not possible to expose SSH port.
 
 ## FAQ
 

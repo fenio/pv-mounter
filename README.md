@@ -22,6 +22,8 @@ Few things. Namely:
 * creates port-forward to make it locally accessible
 * mounts volume locally using SSHFS 
 
+See also demo below.
+
 ## Quick Start
 
 Will start working once https://github.com/kubernetes-sigs/krew-index/pull/3844 is approved.

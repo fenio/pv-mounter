@@ -52,6 +52,10 @@ Or you can simply grab binaries from [releases](https://github.com/fenio/pv-moun
 It's not possible to mount such PVC unless it's first unmounted.
 I tried to workaround this by using ephemeral container but unfortunately they're too limited for that task as they can't expose port thus it's not possible to access them with SSHFS.
 
+**UPDATE**
+
+Some hack with reversed SSH tunnel might be workaround for that. I'll try this approach.
+
 ### Windows
 
 Since I can't test Windows binaries they're now simply not included but I saw there is SSHFS implementation for Windows so in theory this should work.

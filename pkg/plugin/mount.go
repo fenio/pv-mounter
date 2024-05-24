@@ -13,45 +13,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	// Remove clientcmd import if it's not used here anymore
 )
 
-// BuildKubeClient creates a Kubernetes client
-func BuildKubeClient() (*kubernetes.Clientset, error) {
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfig == "" {
-		home := os.Getenv("HOME")
-		kubeconfig = fmt.Sprintf("%s/.kube/config", home)
-	}
-
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build Kubernetes config: %v", err)
-	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
-	}
-
-	return clientset, nil
-}
-
-// Mount mounts a PVC to a local directory
 func Mount(namespace, pvcName, localMountPoint string) error {
 	if _, err := os.Stat(localMountPoint); os.IsNotExist(err) {
 		return fmt.Errorf("local mount point %s does not exist", localMountPoint)
-	}
-
-	rand.Seed(time.Now().UnixNano())
-	suffix := randSeq(5)
-	podName := fmt.Sprintf("volume-exposer-%s", suffix)
-	port := rand.Intn(64511) + 1024 // Generate a random port between 1024 and 65535
-
-	sshKeyPath := fmt.Sprintf("%s/.ssh/id_rsa.pub", os.Getenv("HOME"))
-	sshKey, err := ioutil.ReadFile(sshKeyPath)
-	if err != nil {
-		return fmt.Errorf("failed to read SSH public key: %v", err)
 	}
 
 	clientset, err := BuildKubeClient()
@@ -59,41 +26,152 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
-	ctx := context.TODO()
-	pvcClient := clientset.CoreV1().PersistentVolumeClaims(namespace)
-	pvc, err := pvcClient.Get(ctx, pvcName, metav1.GetOptions{})
+	pvc, err := checkPVCUsage(clientset, namespace, pvcName)
 	if err != nil {
-		return fmt.Errorf("failed to get PVC: %v", err)
+		return err
 	}
 
-	if pvc.Status.Phase == corev1.ClaimBound {
-		pvName := pvc.Spec.VolumeName
-		pvClient := clientset.CoreV1().PersistentVolumes()
-		pv, err := pvClient.Get(ctx, pvName, metav1.GetOptions{})
+	canMount, podUsingPVC, err := checkPVAccessMode(clientset, pvc, namespace) // Corrected the number of parameters
+	if err != nil {
+		return err
+	}
+
+	if !canMount {
+		fmt.Printf("RWO volume is currently mounted by another pod: %s; mounting in this mode is not implemented yet.\n", podUsingPVC)
+		return fmt.Errorf("mount operation for RWO volume that is already in use by pod %s is not implemented yet", podUsingPVC)
+	}
+
+	sshKey, err := readSSHKey()
+	if err != nil {
+		return err
+	}
+
+	podName, port, err := setupPod(clientset, namespace, pvcName, sshKey)
+	if err != nil {
+		return err
+	}
+
+	if err := waitForPodReady(clientset, namespace, podName); err != nil {
+		return err
+	}
+
+	if err := setupPortForwarding(namespace, podName, port); err != nil {
+		return err
+	}
+
+	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName)
+}
+
+func checkPVAccessMode(clientset *kubernetes.Clientset, pvc *corev1.PersistentVolumeClaim, namespace string) (bool, string, error) {
+	pvName := pvc.Spec.VolumeName
+	pv, err := clientset.CoreV1().PersistentVolumes().Get(context.TODO(), pvName, metav1.GetOptions{})
+	if err != nil {
+		return true, "", fmt.Errorf("failed to get PV: %v", err)
+	}
+
+	// Assuming pv is now being checked for its AccessModes.
+	if contains(pv.Spec.AccessModes, corev1.ReadWriteOnce) {
+		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to get PV: %v", err)
+			return true, "", fmt.Errorf("failed to list pods: %v", err)
 		}
-
-		accessModes := pv.Spec.AccessModes
-		for _, mode := range accessModes {
-			if mode == corev1.ReadWriteOnce {
-				pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to list pods: %v", err)
-				}
-
-				for _, pod := range pods.Items {
-					for _, volume := range pod.Spec.Volumes {
-						if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == pvcName {
-							return fmt.Errorf("PVC %s is already in use by pod %s and cannot be mounted because it has RWO access mode", pvcName, pod.Name)
-						}
-					}
+		for _, pod := range podList.Items {
+			for _, volume := range pod.Spec.Volumes {
+				if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == pvc.Name {
+					return false, pod.Name, nil
 				}
 			}
 		}
 	}
+	return true, "", nil
+}
 
-	pod := &corev1.Pod{
+func contains(modes []corev1.PersistentVolumeAccessMode, modeToFind corev1.PersistentVolumeAccessMode) bool {
+	for _, mode := range modes {
+		if mode == modeToFind {
+			return true
+		}
+	}
+	return false
+}
+
+func readSSHKey() (string, error) {
+	sshKeyPath := fmt.Sprintf("%s/.ssh/id_rsa.pub", os.Getenv("HOME"))
+	sshKey, err := ioutil.ReadFile(sshKeyPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read SSH public key: %v", err)
+	}
+	return string(sshKey), nil
+}
+
+func checkPVCUsage(clientset *kubernetes.Clientset, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
+	pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get PVC: %v", err)
+	}
+	if pvc.Status.Phase != corev1.ClaimBound {
+		return nil, fmt.Errorf("PVC %s is not bound", pvcName)
+	}
+	return pvc, nil
+}
+
+func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, sshKey string) (string, int, error) {
+	podName, port := generatePodNameAndPort(pvcName)
+	pod := createPodSpec(podName, port, pvcName, sshKey)
+	if _, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
+		return "", 0, fmt.Errorf("failed to create pod: %v", err)
+	}
+	fmt.Printf("Pod %s created successfully\n", podName)
+	return podName, port, nil
+}
+
+func waitForPodReady(clientset *kubernetes.Clientset, namespace, podName string) error {
+	return wait.PollImmediate(time.Second, 5*time.Minute, func() (bool, error) {
+		pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, cond := range pod.Status.Conditions {
+			if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+}
+
+func setupPortForwarding(namespace, podName string, port int) error {
+	cmd := exec.Command("kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:22", port), "-n", namespace)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start port-forward: %v", err)
+	}
+	time.Sleep(5 * time.Second) // Wait a bit for the port forwarding to establish
+	return nil
+}
+
+func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcName string) error {
+	sshfsCmd := exec.Command("sshfs", "-o", "StrictHostKeyChecking=no,UserKnownHostsFile=/dev/null", fmt.Sprintf("root@localhost:/volume"), localMountPoint, "-p", fmt.Sprintf("%d", port))
+	sshfsCmd.Stdout = os.Stdout
+	sshfsCmd.Stderr = os.Stderr
+	if err := sshfsCmd.Run(); err != nil {
+		return fmt.Errorf("failed to mount PVC using SSHFS: %v", err)
+	}
+	fmt.Printf("PVC %s mounted successfully to %s\n", pvcName, localMountPoint)
+	return nil
+}
+
+func generatePodNameAndPort(pvcName string) (string, int) {
+	rand.Seed(time.Now().UnixNano())
+	suffix := randSeq(5)
+	podName := fmt.Sprintf("volume-exposer-%s", suffix)
+	port := rand.Intn(64511) + 1024 // Generate a random port between 1024 and 65535
+	return podName, port
+}
+
+func createPodSpec(podName string, port int, pvcName, sshKey string) *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
 			Labels: map[string]string{
@@ -121,7 +199,7 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 					Env: []corev1.EnvVar{
 						{
 							Name:  "SSH_KEY",
-							Value: string(sshKey),
+							Value: sshKey,
 						},
 					},
 				},
@@ -138,54 +216,6 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 			},
 		},
 	}
-
-	podClient := clientset.CoreV1().Pods(namespace)
-
-	createdPod, err := podClient.Create(ctx, pod, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to create pod: %v", err)
-	}
-
-	fmt.Printf("Pod %s created successfully\n", createdPod.Name)
-
-	err = wait.PollImmediate(time.Second, 5*time.Minute, func() (bool, error) {
-		pod, err := podClient.Get(ctx, podName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		for _, cond := range pod.Status.Conditions {
-			if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
-				return true, nil
-			}
-		}
-
-		return false, nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to wait for pod to be ready: %v", err)
-	}
-
-	portForwardCmd := exec.Command("kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:22", port), "-n", namespace)
-	portForwardCmd.Stdout = os.Stdout
-	portForwardCmd.Stderr = os.Stderr
-	if err := portForwardCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start port-forward: %v", err)
-	}
-
-	time.Sleep(5 * time.Second)
-
-	sshfsCmd := exec.Command("sshfs", "-o", "StrictHostKeyChecking=no,UserKnownHostsFile=/dev/null", fmt.Sprintf("root@localhost:/volume"), localMountPoint, "-p", fmt.Sprintf("%d", port))
-	sshfsCmd.Stdout = os.Stdout
-	sshfsCmd.Stderr = os.Stderr
-	sshfsCmd.Stdin = os.Stdin
-	if err := sshfsCmd.Run(); err != nil {
-		return fmt.Errorf("failed to mount PVC using SSHFS: %v", err)
-	}
-
-	fmt.Printf("PVC %s mounted successfully to %s\n", pvcName, localMountPoint)
-
-	return nil
 }
 
 func randSeq(n int) string {

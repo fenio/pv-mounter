@@ -7,11 +7,12 @@ import (
 	"encoding/pem"
 
 	"fmt"
-	"math/rand"
-	"os"
-
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"math/rand"
+	"os"
+	"os/exec"
+	"runtime"
 )
 
 func BuildKubeClient() (*kubernetes.Clientset, error) {
@@ -78,4 +79,19 @@ func GenerateKeyPair(bits int) (string, string, error) {
 	})
 
 	return string(privateKeyPEM), string(publicKeyPEM), nil
+}
+
+func checkSSHFS() {
+	_, err := exec.LookPath("sshfs")
+	if err != nil {
+		fmt.Println("sshfs is not available in your environment.")
+		if runtime.GOOS == "darwin" {
+			fmt.Println("For macOS, please install sshfs by visiting: https://osxfuse.github.io/")
+		} else if runtime.GOOS == "linux" {
+			fmt.Println("For Linux, please install sshfs by visiting: https://github.com/libfuse/sshfs")
+		} else {
+			fmt.Println("Please install sshfs and try again.")
+		}
+		os.Exit(1)
+	}
 }

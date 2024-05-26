@@ -13,10 +13,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	// Remove clientcmd import if it's not used here anymore
 )
 
 func Mount(namespace, pvcName, localMountPoint string) error {
+	checkSSHFS()
+
 	if _, err := os.Stat(localMountPoint); os.IsNotExist(err) {
 		return fmt.Errorf("local mount point %s does not exist", localMountPoint)
 	}

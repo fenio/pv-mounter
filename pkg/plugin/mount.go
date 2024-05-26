@@ -60,7 +60,7 @@ func handleMount(clientset *kubernetes.Clientset, namespace, pvcName, localMount
 		return err
 	}
 
-	podName, port, err := setupPod(clientset, namespace, pvcName, sshKey, "standalone", 2137)
+	podName, port, err := setupPod(clientset, namespace, pvcName, sshKey, "standalone", 2137, "")
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func handleRWOConflict(clientset *kubernetes.Clientset, namespace, pvcName, loca
 		return err
 	}
 
-	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "proxy", 6666)
+	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "proxy", 6666, podUsingPVC)
 	if err != nil {
 		return err
 	}
@@ -263,9 +263,9 @@ func checkPVCUsage(clientset *kubernetes.Clientset, namespace, pvcName string) (
 	return pvc, nil
 }
 
-func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, sshKey, role string, sshPort int) (string, int, error) {
+func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, sshKey, role string, sshPort int, originalPodName string) (string, int, error) {
 	podName, port := generatePodNameAndPort(pvcName, role)
-	pod := createPodSpec(podName, port, pvcName, sshKey, role, sshPort)
+	pod := createPodSpec(podName, port, pvcName, sshKey, role, sshPort, originalPodName)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %v", err)
 	}
@@ -322,7 +322,7 @@ func generatePodNameAndPort(pvcName, role string) (string, int) {
 	return podName, port
 }
 
-func createPodSpec(podName string, port int, pvcName, sshKey, role string, sshPort int) *corev1.Pod {
+func createPodSpec(podName string, port int, pvcName, sshKey, role string, sshPort int, originalPodName string) *corev1.Pod {
 	envVars := []corev1.EnvVar{
 		{
 			Name:  "SSH_KEY",
@@ -366,14 +366,21 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string, sshPo
 		},
 	}
 
+	labels := map[string]string{
+		"app":        "volume-exposer",
+		"pvcName":    pvcName,
+		"portNumber": fmt.Sprintf("%d", port),
+	}
+
+	// Add the original pod name label if provided
+	if originalPodName != "" {
+		labels["originalPodName"] = originalPodName
+	}
+
 	podSpec := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: podName,
-			Labels: map[string]string{
-				"app":        "volume-exposer",
-				"pvcName":    pvcName,
-				"portNumber": fmt.Sprintf("%d", port),
-			},
+			Name:   podName,
+			Labels: labels,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{container},

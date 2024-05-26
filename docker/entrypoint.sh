@@ -36,7 +36,7 @@ case "$ROLE" in
         echo "$SSH_PUBLIC_KEY" > /home/ve/.ssh/authorized_keys
         chmod 600 /home/ve/.ssh/id_rsa
         /usr/sbin/sshd -e -p $SSH_PORT
-        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -N -R 2137:localhost:2137 ve@${PROXY_POD_IP} -p 6666
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -N -R 2137:localhost:2137 ve@${PROXY_POD_IP} -p 6666 &
         tail -f /dev/null
         ;;
     *)

@@ -2,14 +2,12 @@ package plugin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -60,37 +58,48 @@ func Clean(namespace, pvcName, localMountPoint string) error {
 	}
 	fmt.Printf("Port-forward process for pod %s killed successfully\n", podName)
 
-	// Remove the ephemeral container
-	err = removeEphemeralContainer(clientset, namespace, podName)
-	if err != nil {
-		return fmt.Errorf("failed to remove ephemeral container: %v", err)
+	// Check for original pod
+	originalPodName := podList.Items[0].Labels["originalPodName"]
+	if originalPodName != "" {
+		err = killProcessInEphemeralContainer(clientset, namespace, originalPodName)
+		if err != nil {
+			return fmt.Errorf("failed to kill process in ephemeral container: %v", err)
+		}
+		fmt.Printf("Process in ephemeral container killed successfully in pod %s\n", originalPodName)
 	}
-	fmt.Printf("Ephemeral container in pod %s removed successfully\n", podName)
 
-	// Delete the pod
+	// Delete the proxy pod
 	err = podClient.Delete(ctx, podName, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete pod: %v", err)
 	}
-	fmt.Printf("Pod %s deleted successfully\n", podName)
+	fmt.Printf("Proxy pod %s deleted successfully\n", podName)
 
 	return nil
 }
 
-func removeEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName string) error {
-	patchData, err := json.Marshal(map[string]interface{}{
-		"spec": map[string]interface{}{
-			"ephemeralContainers": []interface{}{},
-		},
-	})
+func killProcessInEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName string) error {
+	// Retrieve the existing pod to get the ephemeral container name
+	existingPod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to marshal patch data: %v", err)
+		return fmt.Errorf("failed to get existing pod: %v", err)
 	}
 
-	_, err = clientset.CoreV1().Pods(namespace).Patch(context.TODO(), podName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}, "ephemeralcontainers")
-	if err != nil {
-		return fmt.Errorf("failed to patch pod to remove ephemeral container: %v", err)
+	if len(existingPod.Spec.EphemeralContainers) == 0 {
+		return fmt.Errorf("no ephemeral containers found in pod %s", podName)
 	}
 
+	ephemeralContainerName := existingPod.Spec.EphemeralContainers[0].Name
+	fmt.Printf("Ephemeral container name is %s\n", ephemeralContainerName)
+
+	// Command to kill the process (adjust the process name or ID as necessary)
+	killCmd := []string{"pkill", "-f", "tail"} // Replace "process_name" with the actual process name or use a specific PID
+
+	cmd := exec.Command("kubectl", append([]string{"exec", podName, "-n", namespace, "-c", ephemeralContainerName, "--"}, killCmd...)...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to kill process in container %s of pod %s: %v", ephemeralContainerName, podName, err)
+	}
 	return nil
 }

@@ -1,14 +1,19 @@
 package plugin
 
 import (
+	crand "crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+
 	"fmt"
+	"math/rand"
 	"os"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// BuildKubeClient creates a Kubernetes client from a kubeconfig
 func BuildKubeClient() (*kubernetes.Clientset, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
@@ -27,4 +32,50 @@ func BuildKubeClient() (*kubernetes.Clientset, error) {
 	}
 
 	return clientset, nil
+}
+
+func randSeq(n int) string {
+	letters := []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
+func GenerateKeyPair(bits int) (string, string, error) {
+	// Generate a new private key
+	privateKey, err := rsa.GenerateKey(crand.Reader, bits)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate private key: %v", err)
+	}
+
+	// Encode the private key to PKCS8 format
+	privateKeyPKCS8, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to marshal private key to PKCS8: %v", err)
+	}
+
+	// Encode the private key to PEM format
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: privateKeyPKCS8,
+	})
+
+	// Extract the public key from the private key
+	publicKey := &privateKey.PublicKey
+
+	// Encode the public key to PKIX, ASN.1 DER form
+	pubASN1, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to marshal public key: %v", err)
+	}
+
+	// Encode the public key to PEM format
+	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pubASN1,
+	})
+
+	return string(privateKeyPEM), string(publicKeyPEM), nil
 }

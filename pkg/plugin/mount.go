@@ -46,6 +46,15 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
+	privateKey, publicKey, err := GenerateKeyPair(2048)
+	if err != nil {
+		fmt.Printf("Error generating key pair: %v\n", err)
+		return err
+	}
+
+	_ = privateKey
+	_ = publicKey
+
 	podName, port, err := setupPod(clientset, namespace, pvcName, sshKey, "standalone")
 	if err != nil {
 		return err
@@ -238,13 +247,4 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string) *core
 	}
 
 	return podSpec
-}
-
-func randSeq(n int) string {
-	letters := []rune("abcdefghijklmnopqrstuvwxyz0123456789")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
 }

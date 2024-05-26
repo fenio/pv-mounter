@@ -23,7 +23,7 @@ Thus pv-mounter was born to automate that process.
 
 ## What exactly does it do?
 
-Few things. Namely:
+Few things. In case of volumes with RWX access mode or unmounted RWO:
 
 * spawns a POD with minimalistic image that contains SSH daemon and binds to existing PVC
 * creates port-forward to make it locally accessible
@@ -31,10 +31,10 @@ Few things. Namely:
 
 In case of already mounted RWO volumes it's a bit more complex:
 
-* spawns a POD with minimalistic image that contains SSH daemon and will act as jump host or proxy
+* spawns a POD with minimalistic image that contains SSH daemon and will act as proxy to ephemeral container
 * creates ephemeral container within POD that currently mounts volume
 * from that ephemeral container establishes reverse SSH tunnel to to proxy POD
-* creates port-forward to proxy POD to make it locally accessible
+* creates port-forward to proxy POD onto port exposed by tunnel to make it locally accessible
 * mounts volume locally using SSHFS
 
 See also demo below.
@@ -42,6 +42,9 @@ See also demo below.
 ## Prerequisities
 
 * You need working SSHFS setup.
+
+Instructions for [macOS](https://osxfuse.github.io/).
+Instructions for [Linux](https://github.com/libfuse/sshfs).
 
 ## Quick Start
 
@@ -52,6 +55,8 @@ kubectl pv-mounter mount <namespace> <pvc-name> <local-mountpoint>
 kubectl pv-mounter clean <namespace> <pvc-name> <local-mountpoint>
 
 ```
+
+Obviously you have to have working [krew](https://krew.sigs.k8s.io/docs/user-guide/setup/install/) first.
 
 Or you can simply grab binaries from [releases](https://github.com/fenio/pv-mounter/releases).
 

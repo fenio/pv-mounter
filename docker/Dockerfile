@@ -7,7 +7,9 @@ RUN apt-get update && \
 
 COPY entrypoint.sh /entrypoint.sh
 COPY sshd_config /etc/ssh/sshd_config
-RUN chmod +x /entrypoint.sh
+RUN groupadd -r -g 2137 ve && useradd -m -r -s /bin/bash -u 2137 -g ve ve
+RUN chmod +x /entrypoint.sh && \
+    chown -R ve:ve /var/run/sshd /run /volume /entrypoint.sh /etc/ssh
 
 EXPOSE 2137
 

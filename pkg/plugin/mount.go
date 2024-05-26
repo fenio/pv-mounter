@@ -162,7 +162,7 @@ func setupPortForwarding(namespace, podName string, port int) error {
 }
 
 func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcName string) error {
-	sshfsCmd := exec.Command("sshfs", "-o", "StrictHostKeyChecking=no,UserKnownHostsFile=/dev/null", fmt.Sprintf("root@localhost:/volume"), localMountPoint, "-p", fmt.Sprintf("%d", port))
+	sshfsCmd := exec.Command("sshfs", "-o", "StrictHostKeyChecking=no,UserKnownHostsFile=/dev/null", fmt.Sprintf("ve@localhost:/volume"), localMountPoint, "-p", fmt.Sprintf("%d", port))
 	sshfsCmd.Stdout = os.Stdout
 	sshfsCmd.Stderr = os.Stderr
 	if err := sshfsCmd.Run(); err != nil {
@@ -200,6 +200,12 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string) *core
 		})
 	}
 
+	runAsNonRoot := true
+	runAsUser := int64(2137)
+	runAsGroup := int64(2137)
+	allowPrivilegeEscalation := false
+	readOnlyRootFilesystem := false
+
 	container := corev1.Container{
 		Name:  "volume-exposer",
 		Image: "bfenski/volume-exposer:latest",
@@ -209,6 +215,13 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string) *core
 			},
 		},
 		Env: envVars,
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+			ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+		},
 	}
 
 	podSpec := &corev1.Pod{
@@ -222,6 +235,11 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string) *core
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{container},
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsNonRoot: &runAsNonRoot,
+				RunAsUser:    &runAsUser,
+				RunAsGroup:   &runAsGroup,
+			},
 		},
 	}
 

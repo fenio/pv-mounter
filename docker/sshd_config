@@ -3,7 +3,7 @@ Port 2137
 PermitRootLogin prohibit-password
 PasswordAuthentication no
 ChallengeResponseAuthentication no
-UsePAM yes
+UsePAM no
 PrintMotd no
 Subsystem sftp /usr/lib/openssh/sftp-server
 

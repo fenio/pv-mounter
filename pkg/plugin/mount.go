@@ -116,7 +116,7 @@ func checkPVCUsage(clientset *kubernetes.Clientset, namespace, pvcName string) (
 }
 
 func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, sshKey, role string) (string, int, error) {
-	podName, port := generatePodNameAndPort(pvcName)
+	podName, port := generatePodNameAndPort(pvcName, role)
 	pod := createPodSpec(podName, port, pvcName, sshKey, role)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %v", err)
@@ -162,10 +162,14 @@ func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcNa
 	return nil
 }
 
-func generatePodNameAndPort(pvcName string) (string, int) {
+func generatePodNameAndPort(pvcName, role string) (string, int) {
 	rand.Seed(time.Now().UnixNano())
 	suffix := randSeq(5)
-	podName := fmt.Sprintf("volume-exposer-%s", suffix)
+	baseName := "volume-exposer"
+	if role == "proxy" {
+		baseName = "volume-exposer-proxy"
+	}
+	podName := fmt.Sprintf("%s-%s", baseName, suffix)
 	port := rand.Intn(64511) + 1024 // Generate a random port between 1024 and 65535
 	return podName, port
 }
@@ -178,15 +182,26 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string) *core
 		},
 	}
 
-	// Add the ROLE environment variable if the role is "standalone"
-	if role == "standalone" {
+	// Add the ROLE environment variable if the role is "standalone" or "proxy"
+	if role == "standalone" || role == "proxy" {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "ROLE",
-			Value: "standalone",
+			Value: role,
 		})
 	}
 
-	return &corev1.Pod{
+	container := corev1.Container{
+		Name:  "volume-exposer",
+		Image: "bfenski/volume-exposer:latest",
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: 2137,
+			},
+		},
+		Env: envVars,
+	}
+
+	podSpec := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
 			Labels: map[string]string{
@@ -196,36 +211,33 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string) *core
 			},
 		},
 		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:  "volume-exposer",
-					Image: "bfenski/volume-exposer:latest",
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: 2137,
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							MountPath: "/volume",
-							Name:      "my-pvc",
-						},
-					},
-					Env: envVars,
-				},
-			},
-			Volumes: []corev1.Volume{
-				{
-					Name: "my-pvc",
-					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvcName,
-						},
-					},
-				},
-			},
+			Containers: []corev1.Container{container},
 		},
 	}
+
+	// Only mount the volume if the role is not "proxy"
+	if role != "proxy" {
+		container.VolumeMounts = []corev1.VolumeMount{
+			{
+				MountPath: "/volume",
+				Name:      "my-pvc",
+			},
+		}
+		podSpec.Spec.Volumes = []corev1.Volume{
+			{
+				Name: "my-pvc",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvcName,
+					},
+				},
+			},
+		}
+		// Update the container in the podSpec with the volume mounts
+		podSpec.Spec.Containers[0] = container
+	}
+
+	return podSpec
 }
 
 func randSeq(n int) string {

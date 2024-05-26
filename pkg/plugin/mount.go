@@ -56,7 +56,7 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 	_ = privateKey
 	_ = publicKey
 
-	podName, port, err := setupPod(clientset, namespace, pvcName, sshKey, "standalone")
+	podName, port, err := setupPod(clientset, namespace, pvcName, sshKey, "standalone", 2137)
 	if err != nil {
 		return err
 	}
@@ -125,9 +125,9 @@ func checkPVCUsage(clientset *kubernetes.Clientset, namespace, pvcName string) (
 	return pvc, nil
 }
 
-func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, sshKey, role string) (string, int, error) {
+func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, sshKey, role string, sshPort int) (string, int, error) {
 	podName, port := generatePodNameAndPort(pvcName, role)
-	pod := createPodSpec(podName, port, pvcName, sshKey, role)
+	pod := createPodSpec(podName, port, pvcName, sshKey, role, sshPort)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %v", err)
 	}
@@ -184,11 +184,15 @@ func generatePodNameAndPort(pvcName, role string) (string, int) {
 	return podName, port
 }
 
-func createPodSpec(podName string, port int, pvcName, sshKey, role string) *corev1.Pod {
+func createPodSpec(podName string, port int, pvcName, sshKey, role string, sshPort int) *corev1.Pod {
 	envVars := []corev1.EnvVar{
 		{
 			Name:  "SSH_KEY",
 			Value: sshKey,
+		},
+		{
+			Name:  "SSH_PORT",
+			Value: fmt.Sprintf("%d", sshPort),
 		},
 	}
 
@@ -211,7 +215,7 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string) *core
 		Image: "bfenski/volume-exposer:latest",
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: 2137,
+				ContainerPort: int32(sshPort),
 			},
 		},
 		Env: envVars,

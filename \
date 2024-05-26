@@ -1,0 +1,259 @@
+package plugin
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+)
+
+func Mount(namespace, pvcName, localMountPoint string) error {
+	if _, err := os.Stat(localMountPoint); os.IsNotExist(err) {
+		return fmt.Errorf("local mount point %s does not exist", localMountPoint)
+	}
+
+	clientset, err := BuildKubeClient()
+	if err != nil {
+		return err
+	}
+
+	pvc, err := checkPVCUsage(clientset, namespace, pvcName)
+	if err != nil {
+		return err
+	}
+
+	canMount, podUsingPVC, err := checkPVAccessMode(clientset, pvc, namespace)
+	if err != nil {
+		return err
+	}
+
+	if !canMount {
+		fmt.Printf("RWO volume is currently mounted by another pod: %s; setting up proxy and ephemeral containers.\n", podUsingPVC)
+		proxyPodName, err := setupProxyPod(clientset, namespace)
+		if err != nil {
+			return err
+		}
+		proxyPodIP, err := getPodIP(clientset, namespace, proxyPodName)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Proxy pod IP: %s\n", proxyPodIP)
+		if err := addEphemeralContainer(clientset, namespace, podUsingPVC, proxyPodIP, proxyPodName); err != nil {
+			return err
+		}
+		if err := waitForEphemeralContainerReady(clientset, namespace, podUsingPVC); err != nil {
+			return err
+		}
+		if err := setupPortForwarding(namespace, proxyPodName, 2137, 22); err != nil {
+			return err
+		}
+		return mountPVCOverSSH(namespace, proxyPodName, "2137", localMountPoint, pvcName)
+	}
+
+	sshKey, err := readSSHKey()
+	if err != nil {
+		return err
+	}
+
+	podName, port, err := setupRegularPod(clientset, namespace, pvcName, sshKey)
+	if err != nil {
+		return err
+	}
+
+	if err := waitForPodReady(clientset, namespace, podName); err != nil {
+		return err
+	}
+
+	if err := setupPortForwarding(namespace, podName, port, 22); err != nil {
+		return err
+	}
+
+	return mountPVCOverSSH(namespace, podName, fmt.Sprintf("%d", port), localMountPoint, pvcName)
+}
+
+func setupProxyPod(clientset *kubernetes.Clientset, namespace string) (string, error) {
+	podName := fmt.Sprintf("proxy-%s", randSeq(5))
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: podName,
+			Labels: map[string]string{
+				"app":  "proxy-ssh",
+				"role": "proxy",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "proxy-ssh",
+					Image: "bfenski/v-e:latest",
+					Ports: []corev1.ContainerPort{
+						{
+							ContainerPort: 2137,
+						},
+					},
+					Env: []corev1.EnvVar{
+						{
+							Name:  "ROLE",
+							Value: "proxy",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	createdPod, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to create proxy pod: %v", err)
+	}
+
+	fmt.Printf("Proxy pod %s created successfully\n", createdPod.Name)
+	return podName, nil
+}
+
+func addEphemeralContainer(clientset *kubernetes.Clientset, namespace, targetPodName, proxyPodIP, proxyPodName string) error {
+	privateKey, publicKey, err := generateSSHKeyPair()
+	if err != nil {
+		return fmt.Errorf("failed to generate SSH key pair: %v", err)
+	}
+
+	ephemeralContainer := corev1.EphemeralContainer{
+		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+			Name:  "ephemeral-ssh",
+			Image: "bfenski/v-e:latest",
+			Env: []corev1.EnvVar{
+				{
+					Name:  "ROLE",
+					Value: "ephemeral",
+				},
+				{
+					Name:  "PROXY_POD_IP",
+					Value: proxyPodIP,
+				},
+				{
+					Name:  "PROXY_PORT",
+					Value: "2137",
+				},
+				{
+					Name:  "PRIVATE_KEY",
+					Value: privateKey,
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					MountPath: "/volume",
+					Name:      "my-pvc",
+				},
+			},
+		},
+	}
+
+	patch := fmt.Sprintf(`{"spec":{"ephemeralContainers":[{"name":"%s","image":"%s","env":[{"name":"ROLE","value":"%s"},{"name":"PROXY_POD_IP","value":"%s"},{"name":"PROXY_PORT","value":"2137"},{"name":"PRIVATE_KEY","value":"%s"}],"volumeMounts":[{"mountPath":"/volume","name":"my-pvc"}]}]}}`,
+		ephemeralContainer.Name, ephemeralContainer.Image, "ephemeral", proxyPodIP, privateKey)
+
+	// Escape the patch to ensure there are no invalid characters
+	patch = escapeString(patch)
+
+	restClient := clientset.CoreV1().RESTClient()
+	err = restClient.Patch(types.JSONPatchType).
+		Namespace(namespace).
+		Resource("pods").
+		SubResource("ephemeralcontainers").
+		Name(targetPodName).
+		Body([]byte(patch)).
+		Do(context.TODO()).
+		Error()
+	if err != nil {
+		return fmt.Errorf("failed to update pod %s with ephemeral container: %v", targetPodName, err)
+	}
+
+	fmt.Printf("Ephemeral container added to pod %s successfully\n", targetPodName)
+	return nil
+}
+
+func generatePodNameAndPort(pvcName string) (string, int) {
+	mathrand.Seed(time.Now().UnixNano())
+	suffix := randSeq(5)
+	podName := fmt.Sprintf("volume-exposer-%s", suffix)
+	port := mathrand.Intn(64511) + 1024 // Generate a random port between 1024 and 65535
+	return podName, port
+}
+
+func createPodSpec(podName string, port int, pvcName, sshKey string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: podName,
+			Labels: map[string]string{
+				"app":        "volume-exposer",
+				"pvcName":    pvcName,
+				"portNumber": fmt.Sprintf("%d", port),
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "volume-exposer",
+					Image: "bfenski/volume-exposer:latest",
+					Ports: []corev1.ContainerPort{
+						{
+							ContainerPort: 22,
+						},
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							MountPath: "/volume",
+							Name:      "my-pvc",
+						},
+					},
+					Env: []corev1.EnvVar{
+						{
+							Name:  "SSH_KEY",
+							Value: sshKey,
+						},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "my-pvc",
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func setupRegularPod(clientset *kubernetes.Clientset, namespace, pvcName, sshKey string) (string, int, error) {
+	podName, port := generatePodNameAndPort(pvcName)
+	pod := createPodSpec(podName, port, pvcName, sshKey)
+	if _, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
+		return "", 0, fmt.Errorf("failed to create pod: %v", err)
+	}
+	fmt.Printf("Pod %s created successfully\n", podName)
+	return podName, port, nil
+}
+
+func escapeString(str string) string {
+	escaped := ""
+	for _, r := range str {
+		if r == '\n' {
+			escaped += "\\n"
+		} else if r == '\t' {
+			escaped += "\\t"
+		} else {
+			escaped += string(r)
+		}
+	}
+	return escaped
+}
+

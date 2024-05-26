@@ -6,9 +6,23 @@ if [ -n "$SSH_KEY" ]; then
     echo "Public key added to /root/.ssh/authorized_keys"
 fi
 
-# Redirect sshd logs to stdout
-mkdir -p /var/log/sshd
-touch /var/log/sshd/sshd.log
-ln -sf /dev/stdout /var/log/sshd/sshd.log
+# Check the ROLE environment variable
+case "$ROLE" in
+    standalone)
+        echo "Running as standalone"
+        /usr/sbin/sshd -D -e
+        ;;
+    proxy)
+        echo "Running as proxy"
+        /usr/sbin/sshd -D -e
+        ;;
+    ephemeral)
+        echo "Running as ephemeral"
+        /usr/sbin/sshd -D-e
+        ;;
+    *)
+        echo "Running default..."
+        /usr/sbin/sshd -D -e
+        ;;
+esac
 
-/usr/sbin/sshd -D -e

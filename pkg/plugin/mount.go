@@ -46,7 +46,7 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
-	podName, port, err := setupPod(clientset, namespace, pvcName, sshKey)
+	podName, port, err := setupPod(clientset, namespace, pvcName, sshKey, "standalone")
 	if err != nil {
 		return err
 	}
@@ -115,9 +115,9 @@ func checkPVCUsage(clientset *kubernetes.Clientset, namespace, pvcName string) (
 	return pvc, nil
 }
 
-func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, sshKey string) (string, int, error) {
+func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, sshKey, role string) (string, int, error) {
 	podName, port := generatePodNameAndPort(pvcName)
-	pod := createPodSpec(podName, port, pvcName, sshKey)
+	pod := createPodSpec(podName, port, pvcName, sshKey, role)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %v", err)
 	}
@@ -141,7 +141,7 @@ func waitForPodReady(clientset *kubernetes.Clientset, namespace, podName string)
 }
 
 func setupPortForwarding(namespace, podName string, port int) error {
-	cmd := exec.Command("kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:22", port), "-n", namespace)
+	cmd := exec.Command("kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:2137", port), "-n", namespace)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -170,7 +170,22 @@ func generatePodNameAndPort(pvcName string) (string, int) {
 	return podName, port
 }
 
-func createPodSpec(podName string, port int, pvcName, sshKey string) *corev1.Pod {
+func createPodSpec(podName string, port int, pvcName, sshKey, role string) *corev1.Pod {
+	envVars := []corev1.EnvVar{
+		{
+			Name:  "SSH_KEY",
+			Value: sshKey,
+		},
+	}
+
+	// Add the ROLE environment variable if the role is "standalone"
+	if role == "standalone" {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "ROLE",
+			Value: "standalone",
+		})
+	}
+
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
@@ -187,7 +202,7 @@ func createPodSpec(podName string, port int, pvcName, sshKey string) *corev1.Pod
 					Image: "bfenski/volume-exposer:latest",
 					Ports: []corev1.ContainerPort{
 						{
-							ContainerPort: 22,
+							ContainerPort: 2137,
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
@@ -196,12 +211,7 @@ func createPodSpec(podName string, port int, pvcName, sshKey string) *corev1.Pod
 							Name:      "my-pvc",
 						},
 					},
-					Env: []corev1.EnvVar{
-						{
-							Name:  "SSH_KEY",
-							Value: sshKey,
-						},
-					},
+					Env: envVars,
 				},
 			},
 			Volumes: []corev1.Volume{

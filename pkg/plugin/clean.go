@@ -49,7 +49,7 @@ func Clean(namespace, pvcName, localMountPoint string) error {
 	port := podList.Items[0].Labels["portNumber"]
 
 	// Kill the port-forward process
-	pkillCmd := exec.Command("pkill", "-f", fmt.Sprintf("kubectl port-forward pod/%s %s:22", podName, port))
+	pkillCmd := exec.Command("pkill", "-f", fmt.Sprintf("kubectl port-forward pod/%s %s:2137", podName, port))
 	pkillCmd.Stdout = os.Stdout
 	pkillCmd.Stderr = os.Stderr
 	if err := pkillCmd.Run(); err != nil {

@@ -1,5 +1,4 @@
 # /etc/ssh/sshd_config
-Port 2137
 PermitRootLogin prohibit-password
 PasswordAuthentication no
 ChallengeResponseAuthentication no

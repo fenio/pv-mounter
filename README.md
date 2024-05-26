@@ -8,6 +8,12 @@ Might be used as `kubectl` plugin.
 
 This tool was created with huge help of [ChatGPT-4o](https://chatgpt.com/?model=gpt-4o) and [perplexity](https://www.perplexity.ai/).
 In fact I didn't have to write my own code almost at all but I had to spend a lot of time writing correct prompts for these tools.
+
+**Update**
+
+Above was true for versions 0.0.x. With version 0.5.0 I actually had to learn some Go and while I was still using help from GPT I had to completely change approach. 
+It wasn't able to create fully functional code with all my requirements. 
+
 I published it using Apache-2.0 license cause initial [repository](https://github.com/replicatedhq/krew-plugin-template) was licensed this way but to be honest I'm not sure how such copy&paste stuff should be licensed.
 
 ## Rationale
@@ -19,9 +25,17 @@ Thus pv-mounter was born to automate that process.
 
 Few things. Namely:
 
-* spawns POD with minimalistic image that contains SSH daemon and binds to existing PVC
+* spawns a POD with minimalistic image that contains SSH daemon and binds to existing PVC
 * creates port-forward to make it locally accessible
 * mounts volume locally using SSHFS 
+
+In case of already mounted RWO volumes it's a bit more complex:
+
+* spawns a POD with minimalistic image that contains SSH daemon and will act as jump host or proxy
+* creates ephemeral container within POD that currently mounts volume
+* from that ephemeral container establishes reverse SSH tunnel to to proxy POD
+* creates port-forward to proxy POD to make it locally accessible
+* mounts volume locally using SSHFS
 
 See also demo below.
 
@@ -45,16 +59,6 @@ Or you can simply grab binaries from [releases](https://github.com/fenio/pv-moun
 
 ![Demo](demo.gif)
 
-## Limitations
-
-### PVC with RWO access mode already mounted somewhere else
-
-It's not possible to mount such PVC unless it's first unmounted.
-I tried to workaround this by using ephemeral container but unfortunately they're too limited for that task as they can't expose port thus it's not possible to access them with SSHFS.
-
-**UPDATE**
-
-Some hack with reversed SSH tunnel might be workaround for that. I'll try this approach.
 
 ### Windows
 

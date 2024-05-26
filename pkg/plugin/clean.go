@@ -2,12 +2,15 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 )
 
 func Clean(namespace, pvcName, localMountPoint string) error {
@@ -57,12 +60,37 @@ func Clean(namespace, pvcName, localMountPoint string) error {
 	}
 	fmt.Printf("Port-forward process for pod %s killed successfully\n", podName)
 
+	// Remove the ephemeral container
+	err = removeEphemeralContainer(clientset, namespace, podName)
+	if err != nil {
+		return fmt.Errorf("failed to remove ephemeral container: %v", err)
+	}
+	fmt.Printf("Ephemeral container in pod %s removed successfully\n", podName)
+
 	// Delete the pod
 	err = podClient.Delete(ctx, podName, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete pod: %v", err)
 	}
 	fmt.Printf("Pod %s deleted successfully\n", podName)
+
+	return nil
+}
+
+func removeEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName string) error {
+	patchData, err := json.Marshal(map[string]interface{}{
+		"spec": map[string]interface{}{
+			"ephemeralContainers": []interface{}{},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal patch data: %v", err)
+	}
+
+	_, err = clientset.CoreV1().Pods(namespace).Patch(context.TODO(), podName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}, "ephemeralcontainers")
+	if err != nil {
+		return fmt.Errorf("failed to patch pod to remove ephemeral container: %v", err)
+	}
 
 	return nil
 }

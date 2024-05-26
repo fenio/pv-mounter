@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 
 	"fmt"
+	"golang.org/x/crypto/ssh"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"math/rand"
@@ -66,19 +67,16 @@ func GenerateKeyPair(bits int) (string, string, error) {
 	// Extract the public key from the private key
 	publicKey := &privateKey.PublicKey
 
-	// Encode the public key to PKIX, ASN.1 DER form
-	pubASN1, err := x509.MarshalPKIXPublicKey(publicKey)
+	// Convert the RSA public key to the ssh.PublicKey type
+	sshPublicKey, err := ssh.NewPublicKey(publicKey)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to marshal public key: %v", err)
+		return "", "", fmt.Errorf("failed to create SSH public key: %v", err)
 	}
 
-	// Encode the public key to PEM format
-	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: pubASN1,
-	})
+	// Encode the SSH public key to the authorized_keys format
+	publicKeyBytes := ssh.MarshalAuthorizedKey(sshPublicKey)
 
-	return string(privateKeyPEM), string(publicKeyPEM), nil
+	return string(privateKeyPEM), string(publicKeyBytes), nil
 }
 
 func checkSSHFS() {

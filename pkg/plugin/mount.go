@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -11,6 +12,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 )
@@ -18,8 +20,8 @@ import (
 func Mount(namespace, pvcName, localMountPoint string) error {
 	checkSSHFS()
 
-	if _, err := os.Stat(localMountPoint); os.IsNotExist(err) {
-		return fmt.Errorf("local mount point %s does not exist", localMountPoint)
+	if err := validateMountPoint(localMountPoint); err != nil {
+		return err
 	}
 
 	clientset, err := BuildKubeClient()
@@ -32,29 +34,31 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
-	canMount, podUsingPVC, err := checkPVAccessMode(clientset, pvc, namespace) // Corrected the number of parameters
+	canMount, podUsingPVC, err := checkPVAccessMode(clientset, pvc, namespace)
 	if err != nil {
 		return err
 	}
 
-	if !canMount {
-		fmt.Printf("RWO volume is currently mounted by another pod: %s; mounting in this mode is not implemented yet.\n", podUsingPVC)
-		return fmt.Errorf("mount operation for RWO volume that is already in use by pod %s is not implemented yet", podUsingPVC)
+	if canMount {
+		return handleMount(clientset, namespace, pvcName, localMountPoint)
+	} else {
+		return handleRWOConflict(clientset, namespace, pvcName, localMountPoint, podUsingPVC)
 	}
+}
+
+func validateMountPoint(localMountPoint string) error {
+	if _, err := os.Stat(localMountPoint); os.IsNotExist(err) {
+		return fmt.Errorf("local mount point %s does not exist", localMountPoint)
+	}
+	return nil
+}
+
+func handleMount(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string) error {
 
 	sshKey, err := readSSHKey()
 	if err != nil {
 		return err
 	}
-
-	privateKey, publicKey, err := GenerateKeyPair(2048)
-	if err != nil {
-		fmt.Printf("Error generating key pair: %v\n", err)
-		return err
-	}
-
-	_ = privateKey
-	_ = publicKey
 
 	podName, port, err := setupPod(clientset, namespace, pvcName, sshKey, "standalone", 2137)
 	if err != nil {
@@ -70,6 +74,140 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 	}
 
 	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName)
+}
+
+func handleRWOConflict(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC string) error {
+
+	sshKey, err := readSSHKey()
+	if err != nil {
+		return err
+	}
+
+	privateKey, publicKey, err := GenerateKeyPair(2048)
+	if err != nil {
+		fmt.Printf("Error generating key pair: %v\n", err)
+		return err
+	}
+
+	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "proxy", 6666)
+	if err != nil {
+		return err
+	}
+
+	if err := waitForPodReady(clientset, namespace, podName); err != nil {
+		return err
+	}
+
+	proxyPodIP, err := getPodIP(clientset, namespace, podName)
+	if err != nil {
+		return err
+	}
+
+	err = createEphemeralContainer(clientset, namespace, podUsingPVC, privateKey, sshKey, proxyPodIP)
+	if err != nil {
+		return err
+	}
+
+	if err := setupPortForwarding(namespace, podName, port); err != nil {
+		return err
+	}
+
+	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName)
+}
+
+func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName, privateKey, sshKey, proxyPodIP string) error {
+	// Retrieve the existing pod to get the volume name
+	existingPod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get existing pod: %v", err)
+	}
+
+	var volumeName string
+	for _, volume := range existingPod.Spec.Volumes {
+		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName != "" {
+			volumeName = volume.Name
+			break
+		}
+	}
+
+	if volumeName == "" {
+		return fmt.Errorf("failed to find volume name in the existing pod")
+	}
+
+	ephemeralContainerName := fmt.Sprintf("volume-exposer-ephemeral-%s", randSeq(5))
+	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
+
+	runAsUser := int64(2137)
+	runAsGroup := int64(2137)
+	allowPrivilegeEscalation := false
+	readOnlyRootFilesystem := false
+	runAsNonRoot := true
+
+	ephemeralContainer := corev1.EphemeralContainer{
+		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+			Name:  ephemeralContainerName,
+			Image: "bfenski/volume-exposer:latest",
+			Env: []corev1.EnvVar{
+				{
+					Name:  "ROLE",
+					Value: "ephemeral",
+				},
+				{
+					Name:  "SSH_PRIVATE_KEY",
+					Value: privateKey,
+				},
+				{
+					Name:  "PROXY_POD_IP",
+					Value: proxyPodIP,
+				},
+				{
+					Name:  "SSH_PUBLIC_KEY",
+					Value: sshKey,
+				},
+			},
+			SecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+				ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
+				RunAsNonRoot:             &runAsNonRoot,
+				RunAsUser:                &runAsUser,
+				RunAsGroup:               &runAsGroup,
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      volumeName,
+					MountPath: "/volume",
+				},
+			},
+		},
+	}
+
+	patchData, err := json.Marshal(map[string]interface{}{
+		"spec": map[string]interface{}{
+			"ephemeralContainers": []corev1.EphemeralContainer{ephemeralContainer},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal ephemeral container spec: %v", err)
+	}
+
+	_, err = clientset.CoreV1().Pods(namespace).Patch(context.TODO(), podName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}, "ephemeralcontainers")
+	if err != nil {
+		return fmt.Errorf("failed to patch pod with ephemeral container: %v", err)
+	}
+
+	fmt.Printf("Successfully added ephemeral container %s to pod %s\n", ephemeralContainerName, podName)
+	return nil
+}
+
+func getPodIP(clientset *kubernetes.Clientset, namespace, podName string) (string, error) {
+	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get pod IP: %v", err)
+	}
+	return pod.Status.PodIP, nil
 }
 
 func checkPVAccessMode(clientset *kubernetes.Clientset, pvc *corev1.PersistentVolumeClaim, namespace string) (bool, string, error) {

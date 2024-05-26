@@ -60,6 +60,10 @@ Obviously you have to have working [krew](https://krew.sigs.k8s.io/docs/user-gui
 
 Or you can simply grab binaries from [releases](https://github.com/fenio/pv-mounter/releases).
 
+## Limitations
+
+Tool has clean option that does its best to clean up all stuff it created for mounting volume locally. But ephemeral containers can't be removed/deleted. That's the way k8s works. Thus as part of cleanup tool kills process that keeps that ephemeral container alive. I confirmed it also kills other processes that were running on that container but container itself stays in pretty weird state.
+
 ## Demo
 
 ![Demo](demo.gif)

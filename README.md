@@ -5,6 +5,7 @@
 ![Latest GitHub release](https://img.shields.io/github/release/fenio/pv-mounter.svg)
 [![GitHub license](https://img.shields.io/github/license/fenio/pv-mounter)](https://github.com/fenio/pv-mounter/blob/main/LICENSE)
 ![GitHub stars](https://img.shields.io/github/stars/fenio/pv-mounter.svg?label=github%20stars)
+[![GitHub issues](https://img.shields.io/github/issues/utkuozdemir/pv-migrate)](https://github.com/utkuozdemir/pv-migrate/issues)
 [![GitHub issues](https://img.shields.io/github/issues/fenio/pv-mounter)](https://github.com/fenio/pv-mounter/issues)
 [[GitHub issues](https://img.shields.io/github/issues/fenio/pv-mounter)
 ![GitHub all releases](https://img.shields.io/github/downloads/fenio/pv-mounter/total)

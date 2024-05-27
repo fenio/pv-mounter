@@ -1,47 +1,47 @@
 # pv-mounter 
 
-A tool to locally mount k8s PVs using SSHFS.
+A tool to locally mount Kubernetes Persistent Volumes (PVs) using SSHFS.
 
-Might be used as `kubectl` plugin.
+This tool can also be used as a kubectl plugin.
 
 ## Disclaimer
 
-This tool was created with huge help of [ChatGPT-4o](https://chatgpt.com/?model=gpt-4o) and [perplexity](https://www.perplexity.ai/).
-In fact I didn't have to write my own code almost at all but I had to spend a lot of time writing correct prompts for these tools.
+This tool was created with significant help from [ChatGPT-4o](https://chatgpt.com/?model=gpt-4o) and [perplexity](https://www.perplexity.ai/).
+In fact, I didn't have to write much of the code myself, but I spent a lot of time crafting the correct prompts for these tools.
 
 **Update**
 
-Above was true for versions 0.0.x. With version 0.5.0 I actually had to learn some Go and while I was still using help from GPT I had to completely change approach. 
-It wasn't able to create fully functional code with all my requirements. 
+The above was true for versions 0.0.x. With version 0.5.0, I actually had to learn some Go. While I still used help from GPT, I had to completely change my approach. 
+It wasn't able to create fully functional code that met all my requirements.
 
-I published it using Apache-2.0 license cause initial [repository](https://github.com/replicatedhq/krew-plugin-template) was licensed this way but to be honest I'm not sure how such copy&paste stuff should be licensed.
+I published it using the Apache-2.0 license because the initial [repository](https://github.com/replicatedhq/krew-plugin-template) was licensed this way. However, to be honest, I'm not sure how such copy-and-paste code should be licensed.
 
 ## Rationale
 
-I often need to copy some files from my [homelab](https://github.com/fenio/homelab) which is running on k8s. Having ability to work on these files locally greatly simplifies this task.
-Thus pv-mounter was born to automate that process.
+I often need to copy some files from my [homelab](https://github.com/fenio/homelab) which is running on Kubernetes. 
+Having the ability to work on these files locally greatly simplifies this task. Thus, pv-mounter was born to automate that process.
 
 ## What exactly does it do?
 
-Few things. In case of volumes with RWX access mode or unmounted RWO:
+It performs a few tasks. In the case of volumes with RWX (ReadWriteMany) access mode or unmounted RWO (ReadWriteOnce):
 
-* spawns a POD with minimalistic image that contains SSH daemon and binds to existing PVC
-* creates port-forward to make it locally accessible
-* mounts volume locally using SSHFS 
+* Spawns a POD with a minimalistic image that contains an SSH daemon and binds it to the existing PVC.
+* Creates a port-forward to make it locally accessible.
+* Mounts the volume locally using SSHFS.
 
-In case of already mounted RWO volumes it's a bit more complex:
+For already mounted RWO volumes, it's a bit more complex:
 
-* spawns a POD with minimalistic image that contains SSH daemon and will act as proxy to ephemeral container
-* creates ephemeral container within POD that currently mounts volume
-* from that ephemeral container establishes reverse SSH tunnel to to proxy POD
-* creates port-forward to proxy POD onto port exposed by tunnel to make it locally accessible
-* mounts volume locally using SSHFS
+* Spawns a POD with a minimalistic image that contains an SSH daemon and acts as a proxy to an ephemeral container.
+* Creates an ephemeral container within the POD that currently mounts the volume.
+* From that ephemeral container, establishes a reverse SSH tunnel to the proxy POD.
+* Creates a port-forward to the proxy POD onto the port exposed by the tunnel to make it locally accessible.
+* Mounts the volume locally using SSHFS.
 
-See also demo below.
+See the demo below for more details.
 
 ## Prerequisities
 
-* You need working SSHFS setup.
+* You need a working SSHFS setup.
 
 Instructions for [macOS](https://osxfuse.github.io/).
 Instructions for [Linux](https://github.com/libfuse/sshfs).
@@ -56,13 +56,16 @@ kubectl pv-mounter clean <namespace> <pvc-name> <local-mountpoint>
 
 ```
 
-Obviously you have to have working [krew](https://krew.sigs.k8s.io/docs/user-guide/setup/install/) first.
+Obviously, you need to have working [krew](https://krew.sigs.k8s.io/docs/user-guide/setup/install/) installation first.
 
 Or you can simply grab binaries from [releases](https://github.com/fenio/pv-mounter/releases).
 
 ## Limitations
 
-Tool has clean option that does its best to clean up all stuff it created for mounting volume locally. But ephemeral containers can't be removed/deleted. That's the way k8s works. Thus as part of cleanup tool kills process that keeps that ephemeral container alive. I confirmed it also kills other processes that were running on that container but container itself stays in pretty weird state.
+The tool has a clean option that does its best to clean up all the resources it created for mounting the volume locally. 
+However, ephemeral containers can't be removed or deleted. That's the way Kubernetes works. 
+As part of the cleanup, the tool kills the process that keeps the ephemeral container alive. 
+I confirmed it also kills other processes that were running in that container, but the container itself remains in a pretty weird state.
 
 ## Demo
 
@@ -71,7 +74,7 @@ Tool has clean option that does its best to clean up all stuff it created for mo
 
 ### Windows
 
-Since I can't test Windows binaries they're now simply not included but I saw there is SSHFS implementation for Windows so in theory this should work.
+Since I can't test Windows binaries, they are not included. However, I saw there is an SSHFS implementation for Windows, so in theory, this should work.
 
 ## FAQ
 

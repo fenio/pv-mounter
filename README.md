@@ -1,5 +1,15 @@
 # pv-mounter 
 
+[![build](https://github.com/fenio/pv-mounter/actions/workflows/release.yml/badge.svg)](https://github.com/fenio/pv-mounter/actions/workflows/build.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/fenio/pv-mounter)](https://goreportcard.com/report/github.com/fenio/pv-mounter)
+![Latest GitHub release](https://img.shields.io/github/release/fenio/pv-mounter.svg)
+[![GitHub license](https://img.shields.io/github/license/fenio/pv-mounter)](https://github.com/fenio/pv-mounter/blob/main/LICENSE)
+![GitHub stars](https://img.shields.io/github/stars/fenio/pv-mounter.svg?label=github%20stars)
+[![GitHub issues](https://img.shields.io/github/issues/fenio/pv-mounter)](https://github.com/fenio/pv-mounter/issues)
+[[GitHub issues](https://img.shields.io/github/issues/fenio/pv-mounter)
+![GitHub all releases](https://img.shields.io/github/downloads/fenio/pv-mounter/total)
+![Docker Pulls](https://img.shields.io/docker/pulls/bfenski/volume-exposer?label=volume-exposer%20-%20docker%20pulls)
+
 A tool to locally mount Kubernetes Persistent Volumes (PVs) using SSHFS.
 
 This tool can also be used as a kubectl plugin.

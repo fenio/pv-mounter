@@ -78,8 +78,13 @@ I confirmed it also kills other processes that were running in that container, b
 
 ## Demo
 
-![Demo](demo.gif)
+### Unmounted volume
 
+![Demo-unmounted](unmounted.gif)
+
+### Mounted volume
+
+![Demo-mounted](mounted.gif)
 
 ### Windows
 

@@ -86,9 +86,6 @@ I confirmed it also kills other processes that were running in that container, b
 
 ![Demo-mounted](mounted.gif)
 
-### TEST
-
-![DEMO](demo.gif)
 
 ### Windows
 

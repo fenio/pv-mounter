@@ -86,6 +86,10 @@ I confirmed it also kills other processes that were running in that container, b
 
 ![Demo-mounted](mounted.gif)
 
+### TEST
+
+![DEMO](demo.gif)
+
 ### Windows
 
 Since I can't test Windows binaries, they are not included. However, I saw there is an SSHFS implementation for Windows, so in theory, this should work.

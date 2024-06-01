@@ -1,9 +1,12 @@
+Require kubectl
 Set Shell zsh
 Set FontSize 16
-Set Width 1600
+Set Padding 10
+Set LineHeight 1.2
+Set Width 1500
 Set Height 600
 Set TypingSpeed 180ms
-Require kubectl
+Set WindowBar Colorful
 Output demo.gif
 Sleep 3s
 Type "kubectl get pvc"
@@ -32,6 +35,6 @@ Enter
 Sleep 1s
 Type "ls foo"
 Enter
-Sleep 1s
+Sleep 10s
 Ctrl+D
 

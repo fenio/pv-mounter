@@ -11,13 +11,19 @@ Sleep 500ms
 Type "kubectl get pod
 Enter
 Sleep 500ms
-Type "kubectl pv-mounter demo unmounted-pvc foo"
+Type "kubectl pv-mounter mount demo unmounted-pvc foo"
 Enter
 Sleep 500ms
 Type "kubectl get pod"
 Enter
 Sleep 500ms
 Type "ls foo"
+Enter
+Sleep 500ms
+Type "kubectl pv-mounter clean demo unmounted-pvc foo"
+Enter
+Sleep 500ms
+Type "kubectl get pod"
 Enter
 Sleep 1s
 Ctrl+D

@@ -78,11 +78,11 @@ I confirmed it also kills other processes that were running in that container, b
 
 ## Demo
 
-### Unmounted volume
+### RWX or unmounted RWO volume
 
 ![Demo-unmounted](unmounted.gif)
 
-### Mounted volume
+### Mounted RWO volume
 
 ![Demo-mounted](mounted.gif)
 

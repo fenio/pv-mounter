@@ -7,22 +7,22 @@ Output demo.gif
 Sleep 3s
 Type "kubectl get pvc"
 Enter
-Sleep 500ms
+Sleep 1s
 Type "kubectl get pod
 Enter
-Sleep 500ms
+Sleep 1s
 Type "kubectl pv-mounter mount demo unmounted-pvc foo"
 Enter
-Sleep 500ms
+Sleep 3s
 Type "kubectl get pod"
 Enter
-Sleep 500ms
+Sleep 1s
 Type "ls foo"
 Enter
-Sleep 500ms
+Sleep 1s
 Type "kubectl pv-mounter clean demo unmounted-pvc foo"
 Enter
-Sleep 500ms
+Sleep 3s
 Type "kubectl get pod"
 Enter
 Sleep 1s

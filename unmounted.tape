@@ -7,7 +7,7 @@ Set Width 1500
 Set Height 600
 Set TypingSpeed 180ms
 Set WindowBar Colorful
-Output demo.gif
+Output unmounted.gif
 Sleep 3s
 Type "kubectl get pvc"
 Enter

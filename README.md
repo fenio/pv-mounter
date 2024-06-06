@@ -1,6 +1,6 @@
 # pv-mounter 
 
-[![build](https://github.com/fenio/pv-mounter/actions/workflows/release.yml/badge.svg)](https://github.com/fenio/pv-mounter/actions/workflows/build.yml)
+[![build](https://github.com/fenio/pv-mounter/actions/workflows/build.yml/badge.svg)](https://github.com/fenio/pv-mounter/actions/workflows/build.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fenio/pv-mounter)](https://goreportcard.com/report/github.com/fenio/pv-mounter)
 ![Latest GitHub release](https://img.shields.io/github/release/fenio/pv-mounter.svg)
 [![GitHub license](https://img.shields.io/github/license/fenio/pv-mounter)](https://github.com/fenio/pv-mounter/blob/main/LICENSE)

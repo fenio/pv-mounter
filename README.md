@@ -13,7 +13,8 @@ A tool to locally mount Kubernetes Persistent Volumes (PVs) using SSHFS.
 
 This tool can also be used as a kubectl plugin.
 
-## Disclaimer
+<details>
+  <summary><h2 style="display: inline-block; margin: 0;">Disclaimer</h2></summary>
 
 This tool was created with significant help from [ChatGPT-4o](https://chatgpt.com/?model=gpt-4o) and [perplexity](https://www.perplexity.ai/).
 In fact, I didn't have to write much of the code myself, but I spent a lot of time crafting the correct prompts for these tools.
@@ -24,6 +25,8 @@ The above was true for versions 0.0.x. With version 0.5.0, I actually had to lea
 It wasn't able to create fully functional code that met all my requirements.
 
 I published it using the Apache-2.0 license because the initial [repository](https://github.com/replicatedhq/krew-plugin-template) was licensed this way. However, to be honest, I'm not sure how such copy-and-paste code should be licensed.
+
+</details>
 
 ## Rationale
 

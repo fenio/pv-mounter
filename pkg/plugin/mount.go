@@ -39,10 +39,18 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
+	// Generate the key pair once and use it for both standalone and proxy scenarios
+	privateKey, publicKey, err := GenerateKeyPair(2048)
+	if err != nil {
+		fmt.Printf("Error generating key pair: %v\n", err)
+		return err
+	}
+
+
 	if canMount {
-		return handleMount(clientset, namespace, pvcName, localMountPoint)
+		return handleMount(clientset, namespace, pvcName, localMountPoint, privateKey, publicKey)
 	} else {
-		return handleRWOConflict(clientset, namespace, pvcName, localMountPoint, podUsingPVC)
+		return handleRWOConflict(clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey)
 	}
 }
 
@@ -53,14 +61,9 @@ func validateMountPoint(localMountPoint string) error {
 	return nil
 }
 
-func handleMount(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string) error {
+func handleMount(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, privateKey, publicKey string) error {
 
-	sshKey, err := readSSHKey()
-	if err != nil {
-		return err
-	}
-
-	podName, port, err := setupPod(clientset, namespace, pvcName, sshKey, "standalone", 2137, "")
+	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "standalone", 2137, "")
 	if err != nil {
 		return err
 	}
@@ -73,21 +76,10 @@ func handleMount(clientset *kubernetes.Clientset, namespace, pvcName, localMount
 		return err
 	}
 
-	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName)
+	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey)
 }
 
-func handleRWOConflict(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC string) error {
-
-	sshKey, err := readSSHKey()
-	if err != nil {
-		return err
-	}
-
-	privateKey, publicKey, err := GenerateKeyPair(2048)
-	if err != nil {
-		fmt.Printf("Error generating key pair: %v\n", err)
-		return err
-	}
+func handleRWOConflict(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string) error {
 
 	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "proxy", 6666, podUsingPVC)
 	if err != nil {
@@ -103,7 +95,7 @@ func handleRWOConflict(clientset *kubernetes.Clientset, namespace, pvcName, loca
 		return err
 	}
 
-	err = createEphemeralContainer(clientset, namespace, podUsingPVC, privateKey, sshKey, proxyPodIP)
+	err = createEphemeralContainer(clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP)
 	if err != nil {
 		return err
 	}
@@ -112,10 +104,10 @@ func handleRWOConflict(clientset *kubernetes.Clientset, namespace, pvcName, loca
 		return err
 	}
 
-	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName)
+	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey)
 }
 
-func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName, privateKey, sshKey, proxyPodIP string) error {
+func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string) error {
 	// Retrieve the existing pod to get the volume name
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
@@ -162,7 +154,7 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 				},
 				{
 					Name:  "SSH_PUBLIC_KEY",
-					Value: sshKey,
+					Value: publicKey,
 				},
 			},
 			SecurityContext: &corev1.SecurityContext{
@@ -243,15 +235,6 @@ func contains(modes []corev1.PersistentVolumeAccessMode, modeToFind corev1.Persi
 	return false
 }
 
-func readSSHKey() (string, error) {
-	sshKeyPath := fmt.Sprintf("%s/.ssh/id_rsa.pub", os.Getenv("HOME"))
-	sshKey, err := ioutil.ReadFile(sshKeyPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read SSH public key: %v", err)
-	}
-	return string(sshKey), nil
-}
-
 func checkPVCUsage(clientset *kubernetes.Clientset, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
 	pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
 	if err != nil {
@@ -295,12 +278,26 @@ func setupPortForwarding(namespace, podName string, port int) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start port-forward: %v", err)
 	}
-	time.Sleep(5 * time.Second) // Wait a bit for the port forwarding to establish
+	time.Sleep(4 * time.Second) // Wait a bit for the port forwarding to establish
 	return nil
 }
 
-func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcName string) error {
-	sshfsCmd := exec.Command("sshfs", "-o", "StrictHostKeyChecking=no,UserKnownHostsFile=/dev/null", fmt.Sprintf("ve@localhost:/volume"), localMountPoint, "-p", fmt.Sprintf("%d", port))
+func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcName, privateKey string) error {
+
+	// Create a temporary file to store the private key
+	tmpFile, err := ioutil.TempFile("", "ssh_key_*.pem")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file for SSH private key: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.Write([]byte(privateKey)); err != nil {
+		return fmt.Errorf("failed to write SSH private key to temporary file: %v", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temporary file: %v", err)
+	}
+        sshfsCmd := exec.Command("sshfs", "-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", fmt.Sprintf("ve@localhost:/volume"), localMountPoint, "-p", fmt.Sprintf("%d", port))
 	sshfsCmd.Stdout = os.Stdout
 	sshfsCmd.Stderr = os.Stderr
 	if err := sshfsCmd.Run(); err != nil {

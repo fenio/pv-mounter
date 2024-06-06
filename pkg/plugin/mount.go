@@ -137,7 +137,7 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 	ephemeralContainer := corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:  ephemeralContainerName,
-			Image: "bfenski/volume-exposer:latest",
+			Image: "bfenski/volume-exposer:v0.0.5",
 			Env: []corev1.EnvVar{
 				{
 					Name:  "ROLE",
@@ -346,7 +346,7 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string, sshPo
 
 	container := corev1.Container{
 		Name:  "volume-exposer",
-		Image: "bfenski/volume-exposer:latest",
+		Image: "bfenski/volume-exposer:v0.0.5",
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: int32(sshPort),

@@ -46,7 +46,6 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
-
 	if canMount {
 		return handleMount(clientset, namespace, pvcName, localMountPoint, privateKey, publicKey)
 	} else {
@@ -297,7 +296,7 @@ func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcNa
 	if err := tmpFile.Close(); err != nil {
 		return fmt.Errorf("failed to close temporary file: %v", err)
 	}
-        sshfsCmd := exec.Command("sshfs", "-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", fmt.Sprintf("ve@localhost:/volume"), localMountPoint, "-p", fmt.Sprintf("%d", port))
+	sshfsCmd := exec.Command("sshfs", "-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", fmt.Sprintf("ve@localhost:/volume"), localMountPoint, "-p", fmt.Sprintf("%d", port))
 	sshfsCmd.Stdout = os.Stdout
 	sshfsCmd.Stderr = os.Stderr
 	if err := sshfsCmd.Run(); err != nil {

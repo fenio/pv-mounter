@@ -17,6 +17,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const (
+	VolumeExposerImageVersion       = "v0.0.5"
+	DefaultUserGroup          int64 = 2137
+	DefaultSSHPort            int   = 2137
+	ProxySSHPort              int   = 6666
+)
+
 func Mount(namespace, pvcName, localMountPoint string) error {
 	checkSSHFS()
 
@@ -62,7 +69,7 @@ func validateMountPoint(localMountPoint string) error {
 
 func handleMount(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, privateKey, publicKey string) error {
 
-	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "standalone", 2137, "")
+	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "")
 	if err != nil {
 		return err
 	}
@@ -80,7 +87,7 @@ func handleMount(clientset *kubernetes.Clientset, namespace, pvcName, localMount
 
 func handleRWOConflict(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string) error {
 
-	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "proxy", 6666, podUsingPVC)
+	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC)
 	if err != nil {
 		return err
 	}
@@ -128,8 +135,8 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 	ephemeralContainerName := fmt.Sprintf("volume-exposer-ephemeral-%s", randSeq(5))
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
 
-	runAsUser := int64(2137)
-	runAsGroup := int64(2137)
+	runAsUser := DefaultUserGroup
+	runAsGroup := DefaultUserGroup
 	allowPrivilegeEscalation := false
 	readOnlyRootFilesystem := false
 	runAsNonRoot := true
@@ -137,7 +144,7 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 	ephemeralContainer := corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:  ephemeralContainerName,
-			Image: "bfenski/volume-exposer:v0.0.5",
+			Image: fmt.Sprintf("bfenski/volume-exposer:%s", VolumeExposerImageVersion),
 			Env: []corev1.EnvVar{
 				{
 					Name:  "ROLE",
@@ -271,7 +278,7 @@ func waitForPodReady(clientset *kubernetes.Clientset, namespace, podName string)
 }
 
 func setupPortForwarding(namespace, podName string, port int) error {
-	cmd := exec.Command("kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:2137", port), "-n", namespace)
+	cmd := exec.Command("kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:%d", port, DefaultSSHPort), "-n", namespace)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -339,14 +346,14 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string, sshPo
 	}
 
 	runAsNonRoot := true
-	runAsUser := int64(2137)
-	runAsGroup := int64(2137)
+	runAsUser := DefaultUserGroup
+	runAsGroup := DefaultUserGroup
 	allowPrivilegeEscalation := false
 	readOnlyRootFilesystem := false
 
 	container := corev1.Container{
 		Name:  "volume-exposer",
-		Image: "bfenski/volume-exposer:v0.0.5",
+		Image: fmt.Sprintf("bfenski/volume-exposer:%s", VolumeExposerImageVersion),
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: int32(sshPort),

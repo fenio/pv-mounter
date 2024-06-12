@@ -2,9 +2,14 @@
 PermitRootLogin prohibit-password
 PasswordAuthentication no
 ChallengeResponseAuthentication no
+AuthorizedKeysFile none
+AuthorizedKeysCommand /sshkey.sh
+AuthorizedKeysCommandUser ve
+PermitUserEnvironment yes
+
 UsePAM no
 PrintMotd no
 Subsystem sftp /usr/lib/openssh/sftp-server
 
 # Enable logging
-LogLevel VERBOSE
+LogLevel DEBUG3

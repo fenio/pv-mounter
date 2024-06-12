@@ -2,9 +2,11 @@ package plugin
 
 import (
 	crand "crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+
+	"crypto/ecdsa"
+	"crypto/elliptic"
 
 	"fmt"
 	"golang.org/x/crypto/ssh"
@@ -14,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 )
 
 func BuildKubeClient() (*kubernetes.Clientset, error) {
@@ -45,29 +48,29 @@ func randSeq(n int) string {
 	return string(b)
 }
 
-func GenerateKeyPair(bits int) (string, string, error) {
+func GenerateKeyPair(curve elliptic.Curve) (string, string, error) {
 	// Generate a new private key
-	privateKey, err := rsa.GenerateKey(crand.Reader, bits)
+	privateKey, err := ecdsa.GenerateKey(curve, crand.Reader)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to generate private key: %v", err)
 	}
 
 	// Encode the private key to PKCS8 format
-	privateKeyPKCS8, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	privateKeyPKCS8, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to marshal private key to PKCS8: %v", err)
 	}
 
 	// Encode the private key to PEM format
 	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "PRIVATE KEY",
+		Type:  "EC PRIVATE KEY",
 		Bytes: privateKeyPKCS8,
 	})
 
 	// Extract the public key from the private key
 	publicKey := &privateKey.PublicKey
 
-	// Convert the RSA public key to the ssh.PublicKey type
+	// Convert the ECDSA public key to the ssh.PublicKey type
 	sshPublicKey, err := ssh.NewPublicKey(publicKey)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create SSH public key: %v", err)
@@ -75,8 +78,9 @@ func GenerateKeyPair(bits int) (string, string, error) {
 
 	// Encode the SSH public key to the authorized_keys format
 	publicKeyBytes := ssh.MarshalAuthorizedKey(sshPublicKey)
+	trimmedPublicKey := strings.TrimSpace(string(publicKeyBytes))
 
-	return string(privateKeyPEM), string(publicKeyBytes), nil
+	return string(privateKeyPEM), trimmedPublicKey, nil
 }
 
 func checkSSHFS() {

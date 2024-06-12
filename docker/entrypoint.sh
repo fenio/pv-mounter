@@ -1,30 +1,15 @@
 #!/bin/bash
 
-# Create .ssh directory for the ve user if it doesn't exist
-mkdir -p /home/ve/.ssh
-chmod 700 /home/ve/.ssh
-
 if [ -z "${SSH_PORT}" ]; then
   # Define the variable
   SSH_PORT="2137"
 fi
-
-# Check if SSH_KEY environment variable is set
-if [ -n "$SSH_KEY" ]; then
-    echo "$SSH_KEY" >> /home/ve/.ssh/authorized_keys
-    chmod 600 /home/ve/.ssh/authorized_keys
-    echo "Public key added to /home/ve/.ssh/authorized_keys"
-fi
-
-# Adjust ownership of .ssh directory and authorized_keys file
-chown -R ve:ve /home/ve/.ssh
 
 # Check the ROLE environment variable
 case "$ROLE" in
     standalone)
         echo "Running as standalone"
         /usr/sbin/sshd -D -e -p $SSH_PORT
-        tail -f /dev/null
         ;;
     proxy)
         echo "Running as proxy"
@@ -32,10 +17,11 @@ case "$ROLE" in
         ;;
     ephemeral)
         echo "Running as ephemeral"
-        echo "$SSH_PRIVATE_KEY" > /home/ve/.ssh/id_rsa
-        echo "$SSH_PUBLIC_KEY" > /home/ve/.ssh/authorized_keys
-        chmod 600 /home/ve/.ssh/id_rsa
         /usr/sbin/sshd -e -p $SSH_PORT
+        RANDOM_SUFFIX=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8)
+        export SSH_AUTH_SOCK="/dev/shm/ssh-agent-${RANDOM_SUFFIX}.sock"
+        eval "$(ssh-agent -a $SSH_AUTH_SOCK)"
+        ssh-add <(printf "%s\n" "$SSH_PRIVATE_KEY")
         ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -N -R 2137:localhost:2137 ve@${PROXY_POD_IP} -p 6666 &
         tail -f /dev/null
         ;;

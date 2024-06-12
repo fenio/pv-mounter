@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"crypto/elliptic"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -18,10 +19,10 @@ import (
 )
 
 const (
-	VolumeExposerImageVersion       = "v0.0.5"
-	DefaultUserGroup          int64 = 2137
-	DefaultSSHPort            int   = 2137
-	ProxySSHPort              int   = 6666
+	VolumeExposerImageVersion = "v0.2.0"
+	DefaultUserGroup int64 = 2137
+	DefaultSSHPort   int   = 2137
+	ProxySSHPort     int   = 6666
 )
 
 func Mount(namespace, pvcName, localMountPoint string) error {
@@ -41,22 +42,22 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
-	canMount, podUsingPVC, err := checkPVAccessMode(clientset, pvc, namespace)
+	canBeMounted, podUsingPVC, err := checkPVAccessMode(clientset, pvc, namespace)
 	if err != nil {
 		return err
 	}
 
 	// Generate the key pair once and use it for both standalone and proxy scenarios
-	privateKey, publicKey, err := GenerateKeyPair(2048)
+	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
 	if err != nil {
 		fmt.Printf("Error generating key pair: %v\n", err)
 		return err
 	}
 
-	if canMount {
-		return handleMount(clientset, namespace, pvcName, localMountPoint, privateKey, publicKey)
+	if canBeMounted {
+		return handleRWX(clientset, namespace, pvcName, localMountPoint, privateKey, publicKey)
 	} else {
-		return handleRWOConflict(clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey)
+		return handleRWO(clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey)
 	}
 }
 
@@ -67,7 +68,7 @@ func validateMountPoint(localMountPoint string) error {
 	return nil
 }
 
-func handleMount(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, privateKey, publicKey string) error {
+func handleRWX(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, privateKey, publicKey string) error {
 
 	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "")
 	if err != nil {
@@ -85,7 +86,7 @@ func handleMount(clientset *kubernetes.Clientset, namespace, pvcName, localMount
 	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey)
 }
 
-func handleRWOConflict(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string) error {
+func handleRWO(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string) error {
 
 	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC)
 	if err != nil {
@@ -138,7 +139,7 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 	runAsUser := DefaultUserGroup
 	runAsGroup := DefaultUserGroup
 	allowPrivilegeEscalation := false
-	readOnlyRootFilesystem := false
+	readOnlyRootFilesystem := true
 	runAsNonRoot := true
 
 	ephemeralContainer := corev1.EphemeralContainer{
@@ -252,9 +253,9 @@ func checkPVCUsage(clientset *kubernetes.Clientset, namespace, pvcName string) (
 	return pvc, nil
 }
 
-func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, sshKey, role string, sshPort int, originalPodName string) (string, int, error) {
+func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string) (string, int, error) {
 	podName, port := generatePodNameAndPort(pvcName, role)
-	pod := createPodSpec(podName, port, pvcName, sshKey, role, sshPort, originalPodName)
+	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %v", err)
 	}
@@ -325,11 +326,11 @@ func generatePodNameAndPort(pvcName, role string) (string, int) {
 	return podName, port
 }
 
-func createPodSpec(podName string, port int, pvcName, sshKey, role string, sshPort int, originalPodName string) *corev1.Pod {
+func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string) *corev1.Pod {
 	envVars := []corev1.EnvVar{
 		{
-			Name:  "SSH_KEY",
-			Value: sshKey,
+			Name:  "SSH_PUBLIC_KEY",
+			Value: publicKey,
 		},
 		{
 			Name:  "SSH_PORT",
@@ -349,7 +350,7 @@ func createPodSpec(podName string, port int, pvcName, sshKey, role string, sshPo
 	runAsUser := DefaultUserGroup
 	runAsGroup := DefaultUserGroup
 	allowPrivilegeEscalation := false
-	readOnlyRootFilesystem := false
+	readOnlyRootFilesystem := true
 
 	container := corev1.Container{
 		Name:  "volume-exposer",

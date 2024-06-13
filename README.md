@@ -79,12 +79,20 @@ I spent quite some time to make the solution as secure as possible.
 * SSH keys used for connections between various components are generated every time from scratch and once you "clean" environment you won't be able to connect into it with the same credentials.
 * Containers / PODs are using minimal possible privileges:
 
-- allowPrivilegeEscalation: false
-- readOnlyRootFilesystem: true
-- runAsUser = XYZ
-- runAsGroup = XYZ
-- runAsNonRoot = true
+```
+allowPrivilegeEscalation: false
+readOnlyRootFilesystem: true
+runAsUser = XYZ
+runAsGroup = XYZ
+runAsNonRoot = true
+```
 
+sshd_config is also limited as much as possible:
+
+```
+PermitRootLogin no
+PasswordAuthentication no
+```
 
 ## Limitations
 

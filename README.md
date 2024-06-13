@@ -72,6 +72,20 @@ Obviously, you need to have working [krew](https://krew.sigs.k8s.io/docs/user-gu
 
 Or you can simply grab binaries from [releases](https://github.com/fenio/pv-mounter/releases).
 
+## Security
+
+I spent quite some time to make the solution as secure as possible.
+
+* SSH keys used for connections between various components are generated every time from scratch and once you "clean" environment you won't be able to connect into it with the same credentials.
+* Containers / PODs are using minimal possible privileges:
+
+- allowPrivilegeEscalation: false
+- readOnlyRootFilesystem: true
+- runAsUser = XYZ
+- runAsGroup = XYZ
+- runAsNonRoot = true
+
+
 ## Limitations
 
 The tool has a clean option that does its best to clean up all the resources it created for mounting the volume locally. 

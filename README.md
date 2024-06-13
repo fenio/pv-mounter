@@ -81,7 +81,7 @@ I confirmed it also kills other processes that were running in that container, b
 
 ## Demo
 
-Created with ![VHS](https://github.com/charmbracelet/vhs) tool.
+Created with [VHS](https://github.com/charmbracelet/vhs) tool.
 
 ### RWX or unmounted RWO volume
 

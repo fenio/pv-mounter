@@ -4,6 +4,9 @@ FROM debian:stable-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends openssh-server openssh-client && \
     apt-get clean && \
+    apt-get autoremove -y && \
+    rm -f /usr/bin/ssh-keyscan && \
+    rm -f /usr/bin/ssh-keygen && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir /var/run/sshd /volume
 

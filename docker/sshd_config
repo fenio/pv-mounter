@@ -1,11 +1,10 @@
 # /etc/ssh/sshd_config
-PermitRootLogin prohibit-password
+PermitRootLogin no
 PasswordAuthentication no
 ChallengeResponseAuthentication no
 AuthorizedKeysFile none
 AuthorizedKeysCommand /sshkey.sh
 AuthorizedKeysCommandUser ve
-PermitUserEnvironment yes
 
 UsePAM no
 PrintMotd no

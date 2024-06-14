@@ -12,6 +12,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -19,10 +20,16 @@ import (
 )
 
 const (
-	VolumeExposerImageVersion = "v0.2.1"
-	DefaultUserGroup int64 = 2137
-	DefaultSSHPort   int   = 2137
-	ProxySSHPort     int   = 6666
+	VolumeExposerImageVersion       = "v0.2.1"
+	DefaultUserGroup          int64 = 2137
+	DefaultSSHPort            int   = 2137
+	ProxySSHPort              int   = 6666
+
+	CPURequest              = "10m"
+	MemoryRequest           = "50Mi"
+	MemoryLimit             = "100Mi"
+	EphemeralStorageRequest = "1Mi"
+	EphemeralStorageLimit   = "2Mi"
 )
 
 func Mount(namespace, pvcName, localMountPoint string) error {
@@ -144,8 +151,9 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 
 	ephemeralContainer := corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
-			Name:  ephemeralContainerName,
-			Image: fmt.Sprintf("bfenski/volume-exposer:%s", VolumeExposerImageVersion),
+			Name:            ephemeralContainerName,
+			Image:           fmt.Sprintf("bfenski/volume-exposer:%s", VolumeExposerImageVersion),
+			ImagePullPolicy: corev1.PullAlways,
 			Env: []corev1.EnvVar{
 				{
 					Name:  "ROLE",
@@ -353,8 +361,9 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 	readOnlyRootFilesystem := true
 
 	container := corev1.Container{
-		Name:  "volume-exposer",
-		Image: fmt.Sprintf("bfenski/volume-exposer:%s", VolumeExposerImageVersion),
+		Name:            "volume-exposer",
+		Image:           fmt.Sprintf("bfenski/volume-exposer:%s", VolumeExposerImageVersion),
+		ImagePullPolicy: corev1.PullAlways,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: int32(sshPort),
@@ -366,6 +375,17 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 			ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
+			},
+		},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:              resource.MustParse(CPURequest),
+				corev1.ResourceMemory:           resource.MustParse(MemoryRequest),
+				corev1.ResourceEphemeralStorage: resource.MustParse(EphemeralStorageRequest),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory:           resource.MustParse(MemoryLimit),
+				corev1.ResourceEphemeralStorage: resource.MustParse(EphemeralStorageLimit),
 			},
 		},
 	}

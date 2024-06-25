@@ -22,7 +22,7 @@ In fact, I didn't have to write much of the code myself, but I spent a lot of ti
 **Update**
 
 The above was true for versions 0.0.x. With version 0.5.0, I actually had to learn some Go. While I still used help from GPT, I had to completely change my approach. 
-It wasn't able to create fully functional code that met all my requirements.
+AI alone wasn't able to create fully functional code that met all my requirements.
 
 I published it using the Apache-2.0 license because the initial [repository](https://github.com/replicatedhq/krew-plugin-template) was licensed this way. However, to be honest, I'm not sure how such copy-and-paste code should be licensed.
 
@@ -76,7 +76,7 @@ Or you can simply grab binaries from [releases](https://github.com/fenio/pv-moun
 
 I spent quite some time to make the solution as secure as possible.
 
-* SSH keys used for connections between various components are generated every time from scratch and once you "clean" environment you won't be able to connect into it with the same credentials.
+* SSH keys used for connections between various components are generated every time from scratch and once you wipe the environment clean, you won't be able to connect back into it using the same credentials.
 * Containers / PODs are using minimal possible privileges:
 
 ```
@@ -96,10 +96,10 @@ PasswordAuthentication no
 
 ## Limitations
 
-The tool has a clean option that does its best to clean up all the resources it created for mounting the volume locally. 
+The tool has a "clean" option that does its best to clean up all the resources it created for mounting the volume locally. 
 However, ephemeral containers can't be removed or deleted. That's the way Kubernetes works. 
-As part of the cleanup, the tool kills the process that keeps the ephemeral container alive. 
-I confirmed it also kills other processes that were running in that container, but the container itself remains in a pretty weird state.
+As part of the cleanup, this tool kills the process that keeps its ephemeral container alive. 
+I confirmed it also kills other processes that were running in that container, but the container itself remains in a limbo state.
 
 ## Demo
 
@@ -116,7 +116,7 @@ Created with [VHS](https://github.com/charmbracelet/vhs) tool.
 
 ### Windows
 
-Since I can't test Windows binaries, they are not included. However, I saw there is an SSHFS implementation for Windows, so in theory, this should work.
+Since I can't test Windows binaries, they are not included. However, since there seems to exist a working Windows implementation of SSHFS, in theory it should work.
 
 ## FAQ
 

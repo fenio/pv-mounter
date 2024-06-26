@@ -5,6 +5,21 @@ if [ -z "${SSH_PORT}" ]; then
   SSH_PORT="2137"
 fi
 
+# Check if the container should run as root
+if [ "$NEEDS_ROOT" = "true" ]; then
+    echo "Running as root"
+    user="root"
+    group="root"
+else
+    echo "Running as non-root user"
+    user="ve"
+    group="ve"
+fi
+
+# Ensure correct permissions for SSH host keys and necessary directories
+chmod 600 /etc/ssh/ssh_host_*
+chown -R $user:$group /var/run/sshd /run /volume /etc/ssh
+
 # Check the ROLE environment variable
 case "$ROLE" in
     standalone)

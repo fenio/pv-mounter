@@ -24,9 +24,6 @@ RUN groupadd -r -g 2137 ve && \
 # Expose port
 EXPOSE 2137
 
-# Switch to non-root user
-USER ve
-
 # Entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
 

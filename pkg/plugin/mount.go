@@ -173,6 +173,10 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 					Name:  "SSH_PUBLIC_KEY",
 					Value: publicKey,
 				},
+				{
+					Name:  "NEEDS_ROOT",
+					Value: fmt.Sprintf("%v", needsRoot),
+				},
 			},
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: &allowPrivilegeEscalation,
@@ -345,6 +349,10 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 		{
 			Name:  "SSH_PORT",
 			Value: fmt.Sprintf("%d", sshPort),
+		},
+		{
+			Name:  "NEEDS_ROOT",
+			Value: fmt.Sprintf("%v", needsRoot),
 		},
 	}
 

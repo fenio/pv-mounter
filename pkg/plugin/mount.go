@@ -22,8 +22,8 @@ import (
 const (
 	ImageVersion = "latest"
 	//"v0.2.1"
-	Image                  = "your-registry/volume-exposer:" + ImageVersion
-	PrivilegedImage        = "your-registry/volume-exposer-privileged:" + ImageVersion
+	Image                  = "bfenski/volume-exposer:" + ImageVersion
+	PrivilegedImage        = "bfenski/volume-exposer-privileged:" + ImageVersion
 	DefaultUserGroup int64 = 2137
 	DefaultSSHPort   int   = 2137
 	ProxySSHPort     int   = 6666

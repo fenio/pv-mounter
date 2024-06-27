@@ -5,6 +5,8 @@ ChallengeResponseAuthentication no
 AuthorizedKeysFile none
 AuthorizedKeysCommand /sshkey.sh
 AuthorizedKeysCommandUser root
+UsePrivilegeSeparation no
+ChrootDirectory none
 
 UsePAM no
 PrintMotd no

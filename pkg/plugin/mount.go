@@ -64,7 +64,7 @@ func Mount(namespace, pvcName, localMountPoint string, needsRoot bool) error {
 		return err
 	}
 
-	fmt.Printf("Private Key: %s\n", privateKey)
+	//	fmt.Printf("Private Key: %s\n", privateKey)
 
 	if canBeMounted {
 		return handleRWX(clientset, namespace, pvcName, localMountPoint, privateKey, publicKey, needsRoot)
@@ -194,9 +194,6 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 				RunAsNonRoot:             &runAsNonRoot,
 				RunAsUser:                &runAsUser,
 				RunAsGroup:               &runAsGroup,
-				Capabilities: &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
-				},
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{

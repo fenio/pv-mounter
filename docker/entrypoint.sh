@@ -5,6 +5,13 @@ if [ -z "${SSH_PORT}" ]; then
   SSH_PORT="2137"
 fi
 
+# Determine the user based on NEEDS_ROOT variable
+if [ "${NEEDS_ROOT}" = "true" ]; then
+  SSH_USER="root"
+else
+  SSH_USER="ve"
+fi
+
 # Check the ROLE environment variable
 case "$ROLE" in
     standalone)
@@ -22,7 +29,7 @@ case "$ROLE" in
         export SSH_AUTH_SOCK="/dev/shm/ssh-agent-${RANDOM_SUFFIX}.sock"
         eval "$(ssh-agent -a $SSH_AUTH_SOCK)"
         ssh-add <(printf "%s\n" "$SSH_PRIVATE_KEY")
-        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -N -R 2137:localhost:2137 ve@${PROXY_POD_IP} -p 6666 &
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -N -R 2137:localhost:2137 ${SSH_USER}@${PROXY_POD_IP} -p 6666 &
         tail -f /dev/null
         ;;
     *)

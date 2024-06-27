@@ -1,0 +1,15 @@
+# /etc/ssh/sshd_config
+PermitRootLogin prohibit-password 
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+AuthorizedKeysFile none
+AuthorizedKeysCommand /sshkey.sh
+AuthorizedKeysCommandUser root
+
+UsePAM no
+PrintMotd no
+PidFile none
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+# Enable logging
+LogLevel DEBUG3

@@ -92,7 +92,7 @@ func handleRWX(clientset *kubernetes.Clientset, namespace, pvcName, localMountPo
 		return err
 	}
 
-	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey)
+	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
 func handleRWO(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string, needsRoot bool) error {
@@ -119,7 +119,7 @@ func handleRWO(clientset *kubernetes.Clientset, namespace, pvcName, localMountPo
 		return err
 	}
 
-	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey)
+	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
 func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool) error {
@@ -311,7 +311,7 @@ func setupPortForwarding(namespace, podName string, port int) error {
 	return nil
 }
 
-func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcName, privateKey string) error {
+func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot bool) error {
 	// Create a temporary file to store the private key
 	tmpFile, err := ioutil.TempFile("", "ssh_key_*.pem")
 	if err != nil {
@@ -325,8 +325,12 @@ func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcNa
 	if err := tmpFile.Close(); err != nil {
 		return fmt.Errorf("failed to close temporary file: %v", err)
 	}
+	sshUser := "ve"
+	if needsRoot {
+		sshUser = "root"
+	}
 
-	sshfsCmd := exec.Command("sshfs", "-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", fmt.Sprintf("ve@localhost:/volume"), localMountPoint, "-p", fmt.Sprintf("%d", port))
+	sshfsCmd := exec.Command("sshfs", "-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", fmt.Sprintf("%s@localhost:/volume", sshUser), localMountPoint, "-p", fmt.Sprintf("%d", port))
 	sshfsCmd.Stdout = os.Stdout
 	sshfsCmd.Stderr = os.Stderr
 	if err := sshfsCmd.Run(); err != nil {
@@ -373,8 +377,25 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 	}
 
 	image := Image
+	var securityContext *corev1.SecurityContext
+
 	if needsRoot {
 		image = PrivilegedImage
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: boolPtr(true),
+			ReadOnlyRootFilesystem:   boolPtr(true),
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
+			},
+		}
+	} else {
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: boolPtr(false),
+			ReadOnlyRootFilesystem:   boolPtr(true),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+		}
 	}
 
 	runAsNonRoot := !needsRoot
@@ -384,8 +405,6 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 		runAsUser = 0
 		runAsGroup = 0
 	}
-	allowPrivilegeEscalation := false
-	readOnlyRootFilesystem := true
 
 	container := corev1.Container{
 		Name:            "volume-exposer",
@@ -396,17 +415,8 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 				ContainerPort: int32(sshPort),
 			},
 		},
-		Env: envVars,
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &allowPrivilegeEscalation,
-			ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			RunAsNonRoot: &runAsNonRoot,
-			RunAsUser:    &runAsUser,
-			RunAsGroup:   &runAsGroup,
-		},
+		Env:             envVars,
+		SecurityContext: securityContext,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:              resource.MustParse(CPURequest),
@@ -469,4 +479,8 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 	}
 
 	return podSpec
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }

@@ -13,7 +13,7 @@ RUN apt-get update && \
 # Copy scripts and configuration files
 COPY entrypoint.sh /entrypoint.sh
 COPY sshkey.sh /sshkey.sh
-COPY sshd_config /etc/ssh/sshd_config
+COPY sshd_config.privileged /etc/ssh/sshd_config
 
 # Ensure scripts are executable
 RUN chmod +x /entrypoint.sh /sshkey.sh

@@ -20,10 +20,10 @@ import (
 )
 
 const (
-	VolumeExposerImageVersion       = "v0.2.1"
-	DefaultUserGroup          int64 = 2137
-	DefaultSSHPort            int   = 2137
-	ProxySSHPort              int   = 6666
+	VolumeExposerImageVersion = "v0.2.2"
+	DefaultUserGroup int64 = 2137
+	DefaultSSHPort   int   = 2137
+	ProxySSHPort     int   = 6666
 
 	CPURequest              = "10m"
 	MemoryRequest           = "50Mi"

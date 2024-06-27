@@ -8,6 +8,7 @@ AuthorizedKeysCommandUser ve
 
 UsePAM no
 PrintMotd no
+PidFile none
 Subsystem sftp /usr/lib/openssh/sftp-server
 
 # Enable logging

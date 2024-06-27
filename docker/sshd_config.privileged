@@ -12,4 +12,4 @@ PidFile none
 Subsystem sftp /usr/lib/openssh/sftp-server
 
 # Enable logging
-LogLevel DEBUG3
+LogLevel VERBOSE

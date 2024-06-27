@@ -147,19 +147,35 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
 
 	image := Image
+	var securityContext *corev1.SecurityContext
+
 	if needsRoot {
 		image = PrivilegedImage
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: boolPtr(true),
+			ReadOnlyRootFilesystem:   boolPtr(true),
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
+			},
+		}
+	} else {
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: boolPtr(false),
+			ReadOnlyRootFilesystem:   boolPtr(true),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+		}
 	}
 
-	runAsUser := DefaultUserGroup
-	runAsGroup := DefaultUserGroup
-	if needsRoot {
-		runAsUser = 0
-		runAsGroup = 0
-	}
-	allowPrivilegeEscalation := false
-	readOnlyRootFilesystem := true
-	runAsNonRoot := !needsRoot
+	//	runAsUser := DefaultUserGroup
+	//	runAsGroup := DefaultUserGroup
+	//	if needsRoot {
+	//		runAsUser = 0
+	//		runAsGroup = 0
+	//	}
+	//
+	//	runAsNonRoot := !needsRoot
 
 	ephemeralContainer := corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
@@ -188,13 +204,7 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 					Value: fmt.Sprintf("%v", needsRoot),
 				},
 			},
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &allowPrivilegeEscalation,
-				ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
-				RunAsNonRoot:             &runAsNonRoot,
-				RunAsUser:                &runAsUser,
-				RunAsGroup:               &runAsGroup,
-			},
+			SecurityContext: securityContext,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      volumeName,

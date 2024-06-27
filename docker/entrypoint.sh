@@ -24,8 +24,8 @@ case "$ROLE" in
         ;;
     ephemeral)
         echo "Running as ephemeral"
-#        LOG_FILE="/dev/shm/ephemeral_container.log"
-#        exec > >(tee -a "$LOG_FILE") 2>&1
+        LOG_FILE="/dev/shm/ephemeral_container.log"
+        exec > >(tee -a "$LOG_FILE") 2>&1
         /usr/sbin/sshd -D -e -p $SSH_PORT &
         RANDOM_SUFFIX=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8)
         export SSH_AUTH_SOCK="/dev/shm/ssh-agent-${RANDOM_SUFFIX}.sock"

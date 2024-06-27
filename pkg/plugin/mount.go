@@ -168,7 +168,6 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 		}
 	}
 
-
 	ephemeralContainer := corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:            ephemeralContainerName,

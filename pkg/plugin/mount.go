@@ -306,7 +306,7 @@ func setupPortForwarding(namespace, podName string, port int) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start port-forward: %v", err)
 	}
-	time.Sleep(4 * time.Second) // Wait a bit for the port forwarding to establish
+	time.Sleep(5 * time.Second) // Wait a bit for the port forwarding to establish
 	return nil
 }
 

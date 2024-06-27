@@ -1,10 +1,12 @@
 # /etc/ssh/sshd_config
-PermitRootLogin no
+PermitRootLogin prohibit-password 
 PasswordAuthentication no
 ChallengeResponseAuthentication no
 AuthorizedKeysFile none
 AuthorizedKeysCommand /sshkey.sh
-AuthorizedKeysCommandUser ve
+AuthorizedKeysCommandUser root
+UsePrivilegeSeparation no
+ChrootDirectory none
 
 UsePAM no
 PrintMotd no

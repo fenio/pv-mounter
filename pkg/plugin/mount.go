@@ -20,7 +20,10 @@ import (
 )
 
 const (
-	VolumeExposerImageVersion = "v0.2.2"
+	ImageVersion = "v0.2.2"
+	//"v0.2.1"
+	Image                  = "bfenski/volume-exposer:" + ImageVersion
+	PrivilegedImage        = "bfenski/volume-exposer-privileged:" + ImageVersion
 	DefaultUserGroup int64 = 2137
 	DefaultSSHPort   int   = 2137
 	ProxySSHPort     int   = 6666
@@ -32,7 +35,7 @@ const (
 	EphemeralStorageLimit   = "2Mi"
 )
 
-func Mount(namespace, pvcName, localMountPoint string) error {
+func Mount(namespace, pvcName, localMountPoint string, needsRoot bool) error {
 	checkSSHFS()
 
 	if err := validateMountPoint(localMountPoint); err != nil {
@@ -61,10 +64,12 @@ func Mount(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
+	//	fmt.Printf("Private Key: %s\n", privateKey)
+
 	if canBeMounted {
-		return handleRWX(clientset, namespace, pvcName, localMountPoint, privateKey, publicKey)
+		return handleRWX(clientset, namespace, pvcName, localMountPoint, privateKey, publicKey, needsRoot)
 	} else {
-		return handleRWO(clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey)
+		return handleRWO(clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey, needsRoot)
 	}
 }
 
@@ -75,9 +80,8 @@ func validateMountPoint(localMountPoint string) error {
 	return nil
 }
 
-func handleRWX(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, privateKey, publicKey string) error {
-
-	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "")
+func handleRWX(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, privateKey, publicKey string, needsRoot bool) error {
+	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "", needsRoot)
 	if err != nil {
 		return err
 	}
@@ -90,12 +94,11 @@ func handleRWX(clientset *kubernetes.Clientset, namespace, pvcName, localMountPo
 		return err
 	}
 
-	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey)
+	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
-func handleRWO(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string) error {
-
-	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC)
+func handleRWO(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string, needsRoot bool) error {
+	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC, needsRoot)
 	if err != nil {
 		return err
 	}
@@ -109,7 +112,7 @@ func handleRWO(clientset *kubernetes.Clientset, namespace, pvcName, localMountPo
 		return err
 	}
 
-	err = createEphemeralContainer(clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP)
+	err = createEphemeralContainer(clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP, needsRoot)
 	if err != nil {
 		return err
 	}
@@ -118,10 +121,10 @@ func handleRWO(clientset *kubernetes.Clientset, namespace, pvcName, localMountPo
 		return err
 	}
 
-	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey)
+	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
-func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string) error {
+func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool) error {
 	// Retrieve the existing pod to get the volume name
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
@@ -143,16 +146,33 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 	ephemeralContainerName := fmt.Sprintf("volume-exposer-ephemeral-%s", randSeq(5))
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
 
-	runAsUser := DefaultUserGroup
-	runAsGroup := DefaultUserGroup
-	allowPrivilegeEscalation := false
-	readOnlyRootFilesystem := true
-	runAsNonRoot := true
+	image := Image
+	var securityContext *corev1.SecurityContext
+
+	if needsRoot {
+		image = PrivilegedImage
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: boolPtr(true),
+			ReadOnlyRootFilesystem:   boolPtr(true),
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
+			},
+		}
+	} else {
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: boolPtr(false),
+			ReadOnlyRootFilesystem:   boolPtr(true),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+		}
+	}
+
 
 	ephemeralContainer := corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:            ephemeralContainerName,
-			Image:           fmt.Sprintf("bfenski/volume-exposer:%s", VolumeExposerImageVersion),
+			Image:           image,
 			ImagePullPolicy: corev1.PullAlways,
 			Env: []corev1.EnvVar{
 				{
@@ -171,17 +191,12 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 					Name:  "SSH_PUBLIC_KEY",
 					Value: publicKey,
 				},
-			},
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &allowPrivilegeEscalation,
-				ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
-				RunAsNonRoot:             &runAsNonRoot,
-				RunAsUser:                &runAsUser,
-				RunAsGroup:               &runAsGroup,
-				Capabilities: &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
+				{
+					Name:  "NEEDS_ROOT",
+					Value: fmt.Sprintf("%v", needsRoot),
 				},
 			},
+			SecurityContext: securityContext,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      volumeName,
@@ -224,7 +239,6 @@ func checkPVAccessMode(clientset *kubernetes.Clientset, pvc *corev1.PersistentVo
 		return true, "", fmt.Errorf("failed to get PV: %v", err)
 	}
 
-	// Assuming pv is now being checked for its AccessModes.
 	if contains(pv.Spec.AccessModes, corev1.ReadWriteOnce) {
 		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -261,9 +275,9 @@ func checkPVCUsage(clientset *kubernetes.Clientset, namespace, pvcName string) (
 	return pvc, nil
 }
 
-func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string) (string, int, error) {
+func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool) (string, int, error) {
 	podName, port := generatePodNameAndPort(pvcName, role)
-	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName)
+	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %v", err)
 	}
@@ -293,12 +307,11 @@ func setupPortForwarding(namespace, podName string, port int) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start port-forward: %v", err)
 	}
-	time.Sleep(4 * time.Second) // Wait a bit for the port forwarding to establish
+	time.Sleep(5 * time.Second) // Wait a bit for the port forwarding to establish
 	return nil
 }
 
-func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcName, privateKey string) error {
-
+func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot bool) error {
 	// Create a temporary file to store the private key
 	tmpFile, err := ioutil.TempFile("", "ssh_key_*.pem")
 	if err != nil {
@@ -312,7 +325,12 @@ func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcNa
 	if err := tmpFile.Close(); err != nil {
 		return fmt.Errorf("failed to close temporary file: %v", err)
 	}
-	sshfsCmd := exec.Command("sshfs", "-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", fmt.Sprintf("ve@localhost:/volume"), localMountPoint, "-p", fmt.Sprintf("%d", port))
+	sshUser := "ve"
+	if needsRoot {
+		sshUser = "root"
+	}
+
+	sshfsCmd := exec.Command("sshfs", "-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", fmt.Sprintf("%s@localhost:/volume", sshUser), localMountPoint, "-p", fmt.Sprintf("%d", port))
 	sshfsCmd.Stdout = os.Stdout
 	sshfsCmd.Stderr = os.Stderr
 	if err := sshfsCmd.Run(); err != nil {
@@ -334,7 +352,7 @@ func generatePodNameAndPort(pvcName, role string) (string, int) {
 	return podName, port
 }
 
-func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string) *corev1.Pod {
+func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool) *corev1.Pod {
 	envVars := []corev1.EnvVar{
 		{
 			Name:  "SSH_PUBLIC_KEY",
@@ -343,6 +361,10 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 		{
 			Name:  "SSH_PORT",
 			Value: fmt.Sprintf("%d", sshPort),
+		},
+		{
+			Name:  "NEEDS_ROOT",
+			Value: fmt.Sprintf("%v", needsRoot),
 		},
 	}
 
@@ -354,29 +376,47 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 		})
 	}
 
-	runAsNonRoot := true
-	runAsUser := DefaultUserGroup
-	runAsGroup := DefaultUserGroup
-	allowPrivilegeEscalation := false
-	readOnlyRootFilesystem := true
+	image := Image
+	var securityContext *corev1.SecurityContext
+
+	if needsRoot {
+		image = PrivilegedImage
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: boolPtr(true),
+			ReadOnlyRootFilesystem:   boolPtr(true),
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
+			},
+		}
+	} else {
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: boolPtr(false),
+			ReadOnlyRootFilesystem:   boolPtr(true),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+		}
+	}
+
+	runAsNonRoot := !needsRoot
+	runAsUser := int64(DefaultUserGroup)
+	runAsGroup := int64(DefaultUserGroup)
+	if needsRoot {
+		runAsUser = 0
+		runAsGroup = 0
+	}
 
 	container := corev1.Container{
 		Name:            "volume-exposer",
-		Image:           fmt.Sprintf("bfenski/volume-exposer:%s", VolumeExposerImageVersion),
+		Image:           image,
 		ImagePullPolicy: corev1.PullAlways,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: int32(sshPort),
 			},
 		},
-		Env: envVars,
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &allowPrivilegeEscalation,
-			ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-		},
+		Env:             envVars,
+		SecurityContext: securityContext,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:              resource.MustParse(CPURequest),
@@ -439,4 +479,8 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 	}
 
 	return podSpec
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }

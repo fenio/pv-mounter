@@ -63,7 +63,7 @@ Instructions for [Linux](https://github.com/libfuse/sshfs).
 ```
 kubectl krew install pv-mounter
 
-kubectl pv-mounter mount <namespace> <pvc-name> <local-mountpoint>
+kubectl pv-mounter mount [--needs-root] <namespace> <pvc-name> <local-mountpoint>
 kubectl pv-mounter clean <namespace> <pvc-name> <local-mountpoint>
 
 ```
@@ -93,6 +93,8 @@ sshd_config is also limited as much as possible:
 PermitRootLogin no
 PasswordAuthentication no
 ```
+
+Above, it's not true if you're using the --needs-root option or the NEEDS_ROOT environment variable, but well, you've asked for it.
 
 ## Limitations
 

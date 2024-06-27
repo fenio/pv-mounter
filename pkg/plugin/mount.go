@@ -20,10 +20,13 @@ import (
 )
 
 const (
-	VolumeExposerImageVersion       = "v0.2.1"
-	DefaultUserGroup          int64 = 2137
-	DefaultSSHPort            int   = 2137
-	ProxySSHPort              int   = 6666
+	ImageVersion = "latest"
+	//"v0.2.1"
+	Image                  = "your-registry/volume-exposer:" + ImageVersion
+	PrivilegedImage        = "your-registry/volume-exposer-privileged:" + ImageVersion
+	DefaultUserGroup int64 = 2137
+	DefaultSSHPort   int   = 2137
+	ProxySSHPort     int   = 6666
 
 	CPURequest              = "10m"
 	MemoryRequest           = "50Mi"
@@ -141,6 +144,11 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 	ephemeralContainerName := fmt.Sprintf("volume-exposer-ephemeral-%s", randSeq(5))
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
 
+	image := Image
+	if needsRoot {
+		image = PrivilegedImage
+	}
+
 	runAsUser := DefaultUserGroup
 	runAsGroup := DefaultUserGroup
 	if needsRoot {
@@ -154,7 +162,7 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 	ephemeralContainer := corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:            ephemeralContainerName,
-			Image:           fmt.Sprintf("bfenski/volume-exposer:%s", VolumeExposerImageVersion),
+			Image:           image,
 			ImagePullPolicy: corev1.PullAlways,
 			Env: []corev1.EnvVar{
 				{
@@ -364,6 +372,11 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 		})
 	}
 
+	image := Image
+	if needsRoot {
+		image = PrivilegedImage
+	}
+
 	runAsNonRoot := !needsRoot
 	runAsUser := int64(DefaultUserGroup)
 	runAsGroup := int64(DefaultUserGroup)
@@ -376,7 +389,7 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 
 	container := corev1.Container{
 		Name:            "volume-exposer",
-		Image:           fmt.Sprintf("bfenski/volume-exposer:%s", VolumeExposerImageVersion),
+		Image:           image,
 		ImagePullPolicy: corev1.PullAlways,
 		Ports: []corev1.ContainerPort{
 			{

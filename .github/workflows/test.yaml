@@ -49,7 +49,7 @@ jobs:
       - name: Create Kubernetes cluster
         run: kind create cluster --wait 5m
 
-      - name: Create StorageClass, test PVCs and PODs
+      - name: Create test PVCs and PODs
         run: |
           kubectl apply -f test/1-pvc.yaml
           kubectl apply -f test/1-pod.yaml
@@ -63,7 +63,10 @@ jobs:
           kubectl apply -f test/4-pod.yaml
 
       - name: Install SSHFS
-        run: sudo apt-get update && sudo apt-get install -y sshfs --no-install-recommends --no-install-suggests
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with: 
+          packages: sshfs
+#        run: sudo apt-get update && sudo apt-get install -y sshfs --no-install-recommends --no-install-suggests
 
       - name: Build pv-mounter
         run: make bin

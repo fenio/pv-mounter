@@ -25,8 +25,8 @@ func TestMountPVC(t *testing.T) {
 	}
 
 	// Construct the absolute paths to the test files
-	pvcPath := filepath.Join(cwd, "pkg/plugin/test/pvc.yaml")
-	podPath := filepath.Join(cwd, "pkg/plugin/test/test-pod.yaml")
+	pvcPath := filepath.Join(cwd, "test/pvc.yaml")
+	podPath := filepath.Join(cwd, "test/test-pod.yaml")
 
 	// Setup commands to create a PVC and a test pod
 	setupCommands := []string{

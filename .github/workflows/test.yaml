@@ -66,6 +66,7 @@ jobs:
          kubectl get pod 
          kubectl get pvc
          kubectl get storageclass
+         kubectl get storageclass standard -o yaml
 
       - name: Unmounted PVC with RWO access mode test
         run: |

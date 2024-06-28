@@ -66,12 +66,12 @@ jobs:
 
       - name: Check state of test objects again
         run: |
-          end=$((SECONDS+60)); while [[ $(kubectl get pvc pvc-1 -o 'jsonpath={..status.phase}') != "Bound"  && SECONDS -lt $end ]]; do echo "waiting for pvc-1 status" && sleep 1; done
-          end=$((SECONDS+60)); while [[ $(kubectl get pvc pvc-2 -o 'jsonpath={..status.phase}') != "Bound"  && SECONDS -lt $end ]]; do echo "waiting for pvc-2 status" && sleep 1; done
-          end=$((SECONDS+60)); while [[ $(kubectl get pod pod-1 -o 'jsonpath={.status.conditions[?(@.type=="Ready")].status}') != "True" && SECONDS -lt $end ]]; do echo "waiting for pod-1 status" && sleep 1; done
-          kubectl describe pvc-1
-          kubectl describe pvc-2
-          kubectl describe pod-1
+          end=$((SECONDS+20)); while [[ $(kubectl get pvc pvc-1 -o 'jsonpath={..status.phase}') != "Bound"  && SECONDS -lt $end ]]; do echo "waiting for pvc-1 status" && sleep 1; done
+          end=$((SECONDS+20)); while [[ $(kubectl get pvc pvc-2 -o 'jsonpath={..status.phase}') != "Bound"  && SECONDS -lt $end ]]; do echo "waiting for pvc-2 status" && sleep 1; done
+          end=$((SECONDS+20)); while [[ $(kubectl get pod pod-1 -o 'jsonpath={.status.conditions[?(@.type=="Ready")].status}') != "True" && SECONDS -lt $end ]]; do echo "waiting for pod-1 status" && sleep 1; done
+          kubectl describe pvc pvc-1
+          kubectl describe pvc pvc-2
+          kubectl describe pod pod-1
 
       - name: Run tests
         run: |

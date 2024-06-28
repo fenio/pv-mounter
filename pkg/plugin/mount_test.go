@@ -3,7 +3,17 @@ package plugin
 import (
 	"testing"
 	"os/exec"
+	"fmt"
 )
+
+func runCommand(cmdStr string) error {
+	cmd := exec.Command("sh", "-c", cmdStr)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("command '%s' failed with error: %v and output: %s", cmdStr, err, string(output))
+	}
+	return nil
+}
 
 func TestMountPVC(t *testing.T) {
 	// Setup commands to create a PVC and a test pod
@@ -13,7 +23,7 @@ func TestMountPVC(t *testing.T) {
 	}
 
 	for _, cmd := range setupCommands {
-		if err := exec.Command("sh", "-c", cmd).Run(); err != nil {
+		if err := runCommand(cmd); err != nil {
 			t.Fatalf("Failed to execute setup command: %v", err)
 		}
 	}
@@ -31,9 +41,11 @@ func TestMountPVC(t *testing.T) {
 	}
 
 	for _, cmd := range cleanupCommands {
-		if err := exec.Command("sh", "-c", cmd).Run(); err != nil {
+		if err := runCommand(cmd); err != nil {
 			t.Fatalf("Failed to execute cleanup command: %v", err)
 		}
 	}
 }
+
+
 

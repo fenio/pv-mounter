@@ -104,12 +104,12 @@ jobs:
  
       - name: Delete PODs and PVCs
         run: |
-          kubectl delete -f test/2-pod.yaml
-          kubectl delete -f test/1-pvc.yaml
-          kubectl delete -f test/2-pvc.yaml
-          kubectl delete -f test/4-pod.yaml
-          kubectl delete -f test/3-pvc.yaml
-          kubectl delete -f test/4-pvc.yaml
+          kubectl delete -f test/2-pod.yaml --force --grace-period=0
+          kubectl delete -f test/1-pvc.yaml --force --grace-period=0
+          kubectl delete -f test/2-pvc.yaml --force --grace-period=0
+          kubectl delete -f test/4-pod.yaml --force --grace-period=0
+          kubectl delete -f test/3-pvc.yaml --force --grace-period=0
+          kubectl delete -f test/4-pvc.yaml --force --grace-period=0
 
 
       - name: Delete cluster

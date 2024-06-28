@@ -30,9 +30,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-#      - name: Create Kind Cluster
-#        uses: helm/kind-action@v1
-
       - name: start minikube
         id: minikube
         uses: medyagh/setup-minikube@latest
@@ -53,8 +50,8 @@ jobs:
 
       - name: Check state of test objects 
         run: |
-         kubectl get pod 
-         kubectl get pvc
+          kubectl get pod 
+          kubectl get pvc
 
       - name: [TEST] PVC with RWX access mode
         run: |

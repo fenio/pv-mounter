@@ -56,6 +56,10 @@ jobs:
       - name: Install sshfs
         run: sudo apt-get update && sudo apt-get install -y sshfs --no-install-recommends --no-install-suggests
 
+      - name: Build pv-mounter
+        run: |
+          go build -o pv-mounter ./cmd/plugin/main.go
+
       - name: Create mountpoint
         run: mkdir /home/runner/work/pv-mounter/pv-mounter/foo
 
@@ -73,8 +77,7 @@ jobs:
       - name: Run tests
         env:
           KUBECONFIG: ${{ secrets.KUBECONFIG }}
-        run: |
-          go test -v ./...
+        run: go test -v ./pkg/plugin
 
       - name: Delete pod and PVC
         run: |

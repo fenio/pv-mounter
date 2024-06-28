@@ -55,11 +55,6 @@ jobs:
           kubectl apply -f test/pvc-2.yaml
           kubectl apply -f test/pod-1.yaml
 
-      - name: Check state of test objects
-        run: |
-          kubectl get pvc
-          kubectl get pod
-
       - name: Install SSHFS
         run: sudo apt-get update && sudo apt-get install -y sshfs --no-install-recommends --no-install-suggests
 
@@ -71,8 +66,9 @@ jobs:
 
       - name: Check state of test objects again
         run: |
-          kubectl get pvc
-          kubectl get pod
+          while [[ $(kubectl get pvc pvc-1 -o 'jsonpath={..status.phase}') != "Bound" ]]; do echo "waiting for pvc-1 status" && sleep 1; done
+          while [[ $(kubectl get pvc pvc-2 -o 'jsonpath={..status.phase}') != "Bound" ]]; do echo "waiting for pvc-2 status" && sleep 1; done
+          while [[ $(kubectl get pod pod-1 -o 'jsonpath={.status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod-1 status" && sleep 1; done
 
       - name: Run tests
         run: |

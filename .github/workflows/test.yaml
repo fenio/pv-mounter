@@ -41,7 +41,8 @@ jobs:
           sudo mv kubectl /usr/local/bin/
 
       - name: Install Minikube
-          run curl -LO "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
+        run: |
+          curl -LO "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
           install minikube-linux-amd64 /tmp/
           /tmp/minikube-linux-amd64 config set WantUpdateNotification false
           /tmp/minikube-linux-amd64 start --driver=docker

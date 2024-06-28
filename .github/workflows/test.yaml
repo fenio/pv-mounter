@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v3
         with:
           go-version: '1.22'
 
@@ -39,6 +39,9 @@ jobs:
       - name: Create Kubernetes cluster
         run: kind create cluster --wait 5m
 
+      - name: Check test files
+        run: ls -al test
+
       - name: Run tests
         env:
           KUBECONFIG: ${{ secrets.KUBECONFIG }}
@@ -47,4 +50,5 @@ jobs:
 
       - name: Delete cluster
         run: kind delete cluster
+
 

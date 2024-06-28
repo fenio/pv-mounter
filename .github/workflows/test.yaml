@@ -51,7 +51,9 @@ jobs:
         run: sudo mkdir /mnt/test
 
       - name: Check PVC status
-        run: kubectl get pvc test-pvc -o yaml
+        run: |
+          kubectl get pvc 
+          kubectl get pvc test-pvc -o yaml
 
       - name: Check pod status
         run: kubectl get pod test-pod -o yaml
@@ -64,6 +66,11 @@ jobs:
           KUBECONFIG: ${{ secrets.KUBECONFIG }}
         run: |
           go test -v ./...
+
+      - name: Delete pod and PVC
+        run: |
+          kubectl delete -f pkg/plugin/test/test-pod.yaml
+          kubectl delete -f pkg/plugin/test/pvc.yaml
 
       - name: Delete cluster
         run: kind delete cluster

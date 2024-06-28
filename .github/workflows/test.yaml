@@ -78,17 +78,27 @@ jobs:
 
       - name: Run tests
         run: |
-          echo 'Shared PVC with RWO access mode'
+          echo 'Unmounted PVC with RWO access mode'
           ./bin/pv-mounter mount default pvc-1 foo
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-1 foo
-          echo 'Unmounted PVC with RWO access mode'
+          echo 'Mounted PVC with RWO access mode'
           ./bin/pv-mounter mount default pvc-2 foo
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-2 foo
-
+          echo 'Unmounted PVC with RWO access mode (NEEDS_ROOT)'
+          ./bin/pv-mounter mount --needs-root default pvc-1 foo
+          touch foo/bar
+          ls -l foo/bar
+          ./bin/pv-mounter clean default pvc-1 foo
+          echo 'Mounted PVC with RWO access mode (NEEDS_ROOT)'
+          ./bin/pv-mounter mount --needs-root default pvc-2 foo
+          touch foo/bar
+          ls -l foo/bar
+          ./bin/pv-mounter clean default pvc-2 foo
+ 
       - name: Delete PODs and PVCs
         run: |
           kubectl delete -f test/pod-2.yaml

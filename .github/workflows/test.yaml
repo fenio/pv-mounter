@@ -30,8 +30,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Create k8s Kind Cluster
-        uses: helm/kind-action@v1
+#      - name: Create Kind Cluster
+#        uses: helm/kind-action@v1
+
+      - name: Create k3d cluster
+        uses: rinx/setup-k3d@v0.0.2
 
       - name: Create test PVCs and PODs
         run: |

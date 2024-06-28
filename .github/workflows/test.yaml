@@ -52,8 +52,9 @@ jobs:
       - name: Create StorageClass, test PVCs and PODs
         run: |
           kubectl apply -f test/pvc-1.yaml
-          kubectl apply -f test/pvc-2.yaml
           kubectl apply -f test/pod-1.yaml
+          kubectl delete -f test/pod-1.yaml
+          kubectl apply -f test/pvc-2.yaml
           kubectl apply -f test/pod-2.yaml
 
       - name: Install SSHFS
@@ -69,10 +70,10 @@ jobs:
         run: |
           end=$((SECONDS+10)); while [[ $(kubectl get pvc pvc-1 -o 'jsonpath={..status.phase}') != "Bound"  && SECONDS -lt $end ]]; do echo "waiting for pvc-1 status" && sleep 1; done
           end=$((SECONDS+10)); while [[ $(kubectl get pvc pvc-2 -o 'jsonpath={..status.phase}') != "Bound"  && SECONDS -lt $end ]]; do echo "waiting for pvc-2 status" && sleep 1; done
-          end=$((SECONDS+10)); while [[ $(kubectl get pod pod-1 -o 'jsonpath={.status.conditions[?(@.type=="Ready")].status}') != "True" && SECONDS -lt $end ]]; do echo "waiting for pod-1 status" && sleep 1; done
           end=$((SECONDS+10)); while [[ $(kubectl get pod pod-2 -o 'jsonpath={.status.conditions[?(@.type=="Ready")].status}') != "True" && SECONDS -lt $end ]]; do echo "waiting for pod-2 status" && sleep 1; done
           kubectl describe pvc pvc-1
           kubectl describe pvc pvc-2
+          kubectl get pod pod-1
           kubectl describe pod pod-1
           kubectl describe pod pod-2
 
@@ -91,7 +92,6 @@ jobs:
 
       - name: Delete PODs and PVCs
         run: |
-          kubectl delete -f test/pod-1.yaml
           kubectl delete -f test/pod-2.yaml
           kubectl delete -f test/pvc-1.yaml
           kubectl delete -f test/pvc-2.yaml

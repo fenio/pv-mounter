@@ -59,6 +59,8 @@ jobs:
       - name: Build pv-mounter
         run: |
           go build -o pv-mounter ./cmd/plugin/main.go
+          ls -al 
+          pwd
 
       - name: Create mountpoint
         run: mkdir /home/runner/work/pv-mounter/pv-mounter/foo

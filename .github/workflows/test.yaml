@@ -60,35 +60,35 @@ jobs:
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-1 foo
 
-      - name: [TEST] Unmounted PVC with RWO access mode
+      - name: '[TEST] Unmounted PVC with RWO access mode'
         run: |
           ./bin/pv-mounter mount default pvc-2 foo
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-2 foo
 
-      - name: [TEST] Mounted PVC with RWO access mode 
+      - name: '[TEST] Mounted PVC with RWO access mode' 
         run: |
           ./bin/pv-mounter mount --needs-root default pvc-3 foo
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-3 foo
 
-      - name: [TEST] PVC with RWX access mode (NEEDS_ROOT)
+      - name: '[TEST] PVC with RWX access mode (NEEDS_ROOT)'
         run: |
           ./bin/pv-mounter mount --needs-root default pvc-4 foo
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-4 foo
 
-      - name: [TEST] Unmounted PVC with RWO access mode (NEEDS_ROOT)
+      - name: '[TEST] Unmounted PVC with RWO access mode (NEEDS_ROOT)'
         run: |
           ./bin/pv-mounter mount default pvc-5 foo
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-5 foo
 
-      - name: [TEST] Mounted PVC with RWO access mode (NEEDS_ROOT)
+      - name: '[TEST] Mounted PVC with RWO access mode (NEEDS_ROOT)'
         run: |
           ./bin/pv-mounter mount --needs-root default pvc-6 foo
           touch foo/bar

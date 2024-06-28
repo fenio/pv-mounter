@@ -1,9 +1,9 @@
 package plugin
 
 import (
-	"testing"
-	"os/exec"
 	"fmt"
+	"os/exec"
+	"testing"
 )
 
 func runCommand(cmdStr string) error {
@@ -17,9 +17,8 @@ func runCommand(cmdStr string) error {
 
 func TestMountPVC(t *testing.T) {
 	// Run the mount command
-	err := Mount("default", "test-pvc", "/mnt/test", false)
+	err := Mount("default", "test-pvc", "~/test", false)
 	if err != nil {
 		t.Fatalf("Failed to mount PVC: %v", err)
 	}
 }
-

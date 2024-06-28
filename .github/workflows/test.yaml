@@ -69,6 +69,11 @@ jobs:
       - name: Create mountpoint
         run: mkdir foo
 
+      - name: Check state of test objects again
+        run: |
+          kubectl get pvc
+          kubectl get pod
+
       - name: Run tests
         run: |
           echo 'Shared PVC with RWO access mode'

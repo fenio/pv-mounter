@@ -23,7 +23,7 @@ func TestMountPVC(t *testing.T) {
 	localMountPoint := "/home/runner/work/pv-mounter/pv-mounter/foo"
 
 	// Run the mount command using the tool
-	mountCmd := fmt.Sprintf("./pv-mounter mount %s %s %s", namespace, pvcName, localMountPoint)
+	mountCmd := fmt.Sprintf("/home/runner/work/pv-mounter/pv-mounter/pv-mounter mount %s %s %s", namespace, pvcName, localMountPoint)
 	if err := runCommand(mountCmd); err != nil {
 		t.Fatalf("Failed to mount PVC: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestMountPVC(t *testing.T) {
 	}
 
 	// Run the unmount command using the tool
-	unmountCmd := fmt.Sprintf("./pv-mounter clean %s", localMountPoint)
+	unmountCmd := fmt.Sprintf("/home/runner/work/pv-mounter/pv-mounter/pv-mounter clean %s", localMountPoint)
 	if err := runCommand(unmountCmd); err != nil {
 		t.Fatalf("Failed to unmount the PVC: %v", err)
 	}

@@ -33,11 +33,9 @@ jobs:
 #      - name: Create Kind Cluster
 #        uses: helm/kind-action@v1
 
-      - name: Create k3d cluster
-        uses: debianmaster/actions-k3s@master
-        id: k3s
-        with:
-          version: 'latest'
+      - name: start minikube
+        id: minikube
+        uses: medyagh/setup-minikube@latest
 
       - name: Create test PVCs and PODs
         run: |

@@ -35,6 +35,9 @@ jobs:
 
       - name: Create k3d cluster
         uses: debianmaster/actions-k3s@master
+        id: k3s
+        with:
+          version: 'latest'
 
       - name: Create test PVCs and PODs
         run: |

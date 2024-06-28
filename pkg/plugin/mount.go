@@ -295,34 +295,52 @@ func setupPortForwarding(namespace, podName string, port int) error {
 	return nil
 }
 
-func mountPVCOverSSH(namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot bool) error {
-	// Create a temporary file to store the private key
-	tmpFile, err := ioutil.TempFile("", "ssh_key_*.pem")
-	if err != nil {
-		return fmt.Errorf("failed to create temporary file for SSH private key: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
+func mountPVCOverSSH(
+    namespace, podName string,
+    port int,
+    localMountPoint, pvcName, privateKey string,
+    needsRoot bool) error {
 
-	if _, err := tmpFile.Write([]byte(privateKey)); err != nil {
-		return fmt.Errorf("failed to write SSH private key to temporary file: %v", err)
-	}
-	if err := tmpFile.Close(); err != nil {
-		return fmt.Errorf("failed to close temporary file: %v", err)
-	}
-	sshUser := "ve"
-	if needsRoot {
-		sshUser = "root"
-	}
+    // Create a temporary file to store the private key
+    tmpFile, err := ioutil.TempFile("", "ssh_key_*.pem")
+    if err != nil {
+        return fmt.Errorf("failed to create temporary file for SSH private key: %v", err)
+    }
+    defer os.Remove(tmpFile.Name())
 
-	sshfsCmd := exec.Command("sshfs", "-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", fmt.Sprintf("%s@localhost:/volume", sshUser), localMountPoint, "-p", fmt.Sprintf("%d", port))
-	sshfsCmd.Stdout = os.Stdout
-	sshfsCmd.Stderr = os.Stderr
-	if err := sshfsCmd.Run(); err != nil {
-		return fmt.Errorf("failed to mount PVC using SSHFS: %v", err)
-	}
-	fmt.Printf("PVC %s mounted successfully to %s\n", pvcName, localMountPoint)
-	return nil
+    if _, err := tmpFile.Write([]byte(privateKey)); err != nil {
+        return fmt.Errorf("failed to write SSH private key to temporary file: %v", err)
+    }
+    if err := tmpFile.Close(); err != nil {
+        return fmt.Errorf("failed to close temporary file: %v", err)
+    }
+
+    sshUser := "ve"
+    if needsRoot {
+        sshUser = "root"
+    }
+
+    sshfsCmd := exec.Command(
+        "sshfs",
+        "-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()),
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        fmt.Sprintf("%s@localhost:/volume", sshUser),
+        localMountPoint,
+        "-p", fmt.Sprintf("%d", port),
+    )
+
+    sshfsCmd.Stdout = os.Stdout
+    sshfsCmd.Stderr = os.Stderr
+
+    if err := sshfsCmd.Run(); err != nil {
+        return fmt.Errorf("failed to mount PVC using SSHFS: %v", err)
+    }
+
+    fmt.Printf("PVC %s mounted successfully to %s\n", pvcName, localMountPoint)
+    return nil
 }
+
 
 func generatePodNameAndPort(pvcName, role string) (string, int) {
 	rand.Seed(time.Now().UnixNano())

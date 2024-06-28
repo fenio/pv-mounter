@@ -73,8 +73,7 @@ jobs:
           end=$((SECONDS+10)); while [[ $(kubectl get pod pod-2 -o 'jsonpath={.status.conditions[?(@.type=="Ready")].status}') != "True" && SECONDS -lt $end ]]; do echo "waiting for pod-2 status" && sleep 1; done
           kubectl describe pvc pvc-1
           kubectl describe pvc pvc-2
-          kubectl get pod pod-1
-          kubectl describe pod pod-1
+          kubectl get pod 
           kubectl describe pod pod-2
 
       - name: Run tests

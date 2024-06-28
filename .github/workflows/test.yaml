@@ -39,11 +39,25 @@ jobs:
       - name: Create Kubernetes cluster
         run: kind create cluster --wait 5m
 
+      - name: Apply test PVC and pod
+        run: |
+          kubectl apply -f pkg/plugin/test/pvc.yaml
+          kubectl apply -f pkg/plugin/test/test-pod.yaml
+
       - name: Install sshfs
         run: sudo apt-get update && sudo apt-get install -y sshfs
 
       - name: Create mountpoint
         run: sudo mkdir /mnt/test
+
+      - name: Check PVC status
+        run: kubectl get pvc test-pvc -o yaml
+
+      - name: Check pod status
+        run: kubectl get pod test-pod -o yaml
+
+      - name: Wait for PVC to be bound
+        run: kubectl wait --for=condition=Bound pvc/test-pvc --timeout=2m
 
       - name: Run tests
         env:

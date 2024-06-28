@@ -34,7 +34,7 @@ jobs:
 #        uses: helm/kind-action@v1
 
       - name: Create k3d cluster
-        uses: rinx/setup-k3d@v0.0.2
+        uses: debianmaster/actions-k3s@master
 
       - name: Create test PVCs and PODs
         run: |

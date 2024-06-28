@@ -10,10 +10,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      kind:
-        image: kindest/node:v1.30.0
-        options: --privileged
+#    services:
+#      kind:
+#        image: kindest/node:v1.30.0
+#        options: --privileged
 
     steps:
       - name: Checkout code
@@ -34,20 +34,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Install kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
+      - name: Create k8s Kind Cluster
+        uses: helm/kind-action@v1
 
-      - name: Set up kind
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+#      - name: Install kubectl
+#        run: |
+#          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+#          chmod +x kubectl
+#          sudo mv kubectl /usr/local/bin/
 
-      - name: Create Kubernetes cluster
-        run: kind create cluster --wait 5m
+#      - name: Set up kind
+#        run: |
+#          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
+#          chmod +x ./kind
+#          sudo mv ./kind /usr/local/bin/kind
+
+#      - name: Create Kubernetes cluster
+#        run: kind create cluster --wait 5m
 
       - name: Create test PVCs and PODs
         run: |

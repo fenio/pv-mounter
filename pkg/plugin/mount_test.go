@@ -4,6 +4,7 @@ import (
 	"testing"
 	"os/exec"
 	"fmt"
+	"path/filepath"
 )
 
 func runCommand(cmdStr string) error {
@@ -16,10 +17,16 @@ func runCommand(cmdStr string) error {
 }
 
 func TestMountPVC(t *testing.T) {
+	// Get the absolute path to the test directory
+	testDir, err := filepath.Abs("test")
+	if err != nil {
+		t.Fatalf("Failed to get absolute path to test directory: %v", err)
+	}
+
 	// Setup commands to create a PVC and a test pod
 	setupCommands := []string{
-		"kubectl apply -f test/pvc.yaml",
-		"kubectl apply -f test/test-pod.yaml",
+		fmt.Sprintf("kubectl apply -f %s/pvc.yaml", testDir),
+		fmt.Sprintf("kubectl apply -f %s/test-pod.yaml", testDir),
 	}
 
 	for _, cmd := range setupCommands {
@@ -29,15 +36,15 @@ func TestMountPVC(t *testing.T) {
 	}
 
 	// Run the mount command
-	err := Mount("default", "test-pvc", "/mnt/test", false)
+	err = Mount("default", "test-pvc", "/mnt/test", false)
 	if err != nil {
 		t.Fatalf("Failed to mount PVC: %v", err)
 	}
 
 	// Cleanup commands
 	cleanupCommands := []string{
-		"kubectl delete -f test/test-pod.yaml",
-		"kubectl delete -f test/pvc.yaml",
+		fmt.Sprintf("kubectl delete -f %s/test-pod.yaml", testDir),
+		fmt.Sprintf("kubectl delete -f %s/pvc.yaml", testDir),
 	}
 
 	for _, cmd := range cleanupCommands {
@@ -46,6 +53,4 @@ func TestMountPVC(t *testing.T) {
 		}
 	}
 }
-
-
 

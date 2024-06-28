@@ -38,17 +38,7 @@ jobs:
         uses: medyagh/setup-minikube@latest
 
       - name: Create test PVCs and PODs
-        run: |
-          kubectl apply -f test/1-pvc.yaml
-          kubectl apply -f test/1-pod.yaml
-          kubectl delete -f test/1-pod.yaml
-          kubectl apply -f test/2-pvc.yaml
-          kubectl apply -f test/2-pod.yaml
-          kubectl apply -f test/3-pvc.yaml
-          kubectl apply -f test/3-pod.yaml
-          kubectl delete -f test/3-pod.yaml
-          kubectl apply -f test/4-pvc.yaml
-          kubectl apply -f test/4-pod.yaml
+        run: kubectl apply -f test
 
       - name: Install SSHFS
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -61,45 +51,54 @@ jobs:
       - name: Create mountpoint
         run: mkdir foo
 
-      - name: Check state of test objects again
+      - name: Check state of test objects 
         run: |
          kubectl get pod 
          kubectl get pvc
-         kubectl get storageclass
-         kubectl get storageclass standard -o yaml
 
-      - name: Unmounted PVC with RWO access mode test
+      - name: [TEST] PVC with RWX access mode
         run: |
           ./bin/pv-mounter mount default pvc-1 foo
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-1 foo
-      - name: Mounted PVC with RWO access mode test
+
+      - name: [TEST] Unmounted PVC with RWO access mode
         run: |
           ./bin/pv-mounter mount default pvc-2 foo
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-2 foo
-      - name: Unmounted PVC with RWO access mode (NEEDS_ROOT) test
+
+      - name: [TEST] Mounted PVC with RWO access mode 
         run: |
           ./bin/pv-mounter mount --needs-root default pvc-3 foo
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-3 foo
-      - name: Mounted PVC with RWO access mode (NEEDS_ROOT) test
+
+      - name: [TEST] PVC with RWX access mode (NEEDS_ROOT)
         run: |
           ./bin/pv-mounter mount --needs-root default pvc-4 foo
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-4 foo
- 
-      - name: Delete PODs and PVCs
+
+      - name: [TEST] Unmounted PVC with RWO access mode (NEEDS_ROOT)
         run: |
-          kubectl delete -f test/2-pod.yaml --force --grace-period=0
-          kubectl delete -f test/1-pvc.yaml --force --grace-period=0
-          kubectl delete -f test/2-pvc.yaml --force --grace-period=0
-          kubectl delete -f test/4-pod.yaml --force --grace-period=0
-          kubectl delete -f test/3-pvc.yaml --force --grace-period=0
-          kubectl delete -f test/4-pvc.yaml --force --grace-period=0
+          ./bin/pv-mounter mount default pvc-5 foo
+          touch foo/bar
+          ls -l foo/bar
+          ./bin/pv-mounter clean default pvc-5 foo
+
+      - name: [TEST] Mounted PVC with RWO access mode (NEEDS_ROOT)
+        run: |
+          ./bin/pv-mounter mount --needs-root default pvc-6 foo
+          touch foo/bar
+          ls -l foo/bar
+          ./bin/pv-mounter clean default pvc-6 foo
+
+      - name: Delete PODs and PVCs
+        run: kubectl delete -f test --force --grace-period=0
 
 

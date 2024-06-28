@@ -52,6 +52,7 @@ jobs:
         run: |
           kubectl get pod 
           kubectl get pvc
+          kubectl get storageclass
 
       - name: '[TEST] PVC with RWX access mode'
         run: |

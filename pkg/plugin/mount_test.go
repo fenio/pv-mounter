@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"fmt"
 	"path/filepath"
+	"os"
 )
 
 func runCommand(cmdStr string) error {
@@ -17,22 +18,32 @@ func runCommand(cmdStr string) error {
 }
 
 func TestMountPVC(t *testing.T) {
-	// Get the absolute path to the test directory
-	testDir, err := filepath.Abs("test")
+	// Get the current working directory
+	cwd, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("Failed to get absolute path to test directory: %v", err)
+		t.Fatalf("Failed to get current working directory: %v", err)
 	}
+
+	// Construct the absolute paths to the test files
+	pvcPath := filepath.Join(cwd, "pkg/plugin/test/pvc.yaml")
+	podPath := filepath.Join(cwd, "pkg/plugin/test/test-pod.yaml")
 
 	// Setup commands to create a PVC and a test pod
 	setupCommands := []string{
-		fmt.Sprintf("kubectl apply -f %s/pvc.yaml", testDir),
-		fmt.Sprintf("kubectl apply -f %s/test-pod.yaml", testDir),
+		fmt.Sprintf("kubectl apply -f %s", pvcPath),
+		fmt.Sprintf("kubectl apply -f %s", podPath),
 	}
 
 	for _, cmd := range setupCommands {
 		if err := runCommand(cmd); err != nil {
 			t.Fatalf("Failed to execute setup command: %v", err)
 		}
+	}
+
+	// Wait for the PVC to be bound
+	checkPVCBound := fmt.Sprintf("kubectl wait --for=condition=Bound pvc/test-pvc --timeout=2m")
+	if err := runCommand(checkPVCBound); err != nil {
+		t.Fatalf("PVC test-pvc is not bound: %v", err)
 	}
 
 	// Run the mount command
@@ -43,8 +54,8 @@ func TestMountPVC(t *testing.T) {
 
 	// Cleanup commands
 	cleanupCommands := []string{
-		fmt.Sprintf("kubectl delete -f %s/test-pod.yaml", testDir),
-		fmt.Sprintf("kubectl delete -f %s/pvc.yaml", testDir),
+		fmt.Sprintf("kubectl delete -f %s", podPath),
+		fmt.Sprintf("kubectl delete -f %s", pvcPath),
 	}
 
 	for _, cmd := range cleanupCommands {

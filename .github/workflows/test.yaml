@@ -51,8 +51,9 @@ jobs:
 
       - name: Prepare test PVCs and PODs
         run: |
-          kubectl apply -f pkg/plugin/test/pvc.yaml
-          kubectl apply -f pkg/plugin/test/test-pod.yaml
+          kubectl apply -f test/pvc-1.yaml
+          kubectl apply -f test/pvc-2.yaml
+          kubectl apply -f test/pod-1.yaml
 
       - name: Install SSHFS
         run: sudo apt-get update && sudo apt-get install -y sshfs --no-install-recommends --no-install-suggests
@@ -65,15 +66,22 @@ jobs:
 
       - name: Run tests
         run: |
-          ./bin/pv-mounter mount default test-pvc foo
-          touch foo/dupa
-          ls -l foo/dupa
-          ./bin/pv-mounter clean default test-pvc foo
+          echo 'Shared PVC with RWO access mode'
+          ./bin/pv-mounter mount default pvc-1 foo
+          touch foo/bar
+          ls -l foo/bar
+          ./bin/pv-mounter clean default pvc-1 foo
+          echo 'Unmounted PVC with RWO access mode'
+          ./bin/pv-mounter mount default pvc-2 foo
+          touch foo/bar
+          ls -l foo/bar
+          ./bin/pv-mounter clean default pvc-2 foo
 
-      - name: Delete pod and PVC
+      - name: Delete PODs and PVCs
         run: |
-          kubectl delete -f pkg/plugin/test/test-pod.yaml
-          kubectl delete -f pkg/plugin/test/pvc.yaml
+          kubectl delete -f test/pod-1.yaml
+          kubectl delete -f test/pvc-1.yaml
+          kubectl delete -f test/pvc-2.yaml
 
       - name: Delete cluster
         run: kind delete cluster

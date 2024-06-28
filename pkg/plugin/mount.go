@@ -355,19 +355,11 @@ func generatePodNameAndPort(pvcName, role string) (string, int) {
 }
 
 func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool) *corev1.Pod {
+
 	envVars := []corev1.EnvVar{
-		{
-			Name:  "SSH_PUBLIC_KEY",
-			Value: publicKey,
-		},
-		{
-			Name:  "SSH_PORT",
-			Value: fmt.Sprintf("%d", sshPort),
-		},
-		{
-			Name:  "NEEDS_ROOT",
-			Value: fmt.Sprintf("%v", needsRoot),
-		},
+		{Name: "SSH_PUBLIC_KEY", Value: publicKey},
+		{Name: "SSH_PORT", Value: fmt.Sprintf("%d", sshPort)},
+		{Name: "NEEDS_ROOT", Value: fmt.Sprintf("%v", needsRoot)},
 	}
 
 	// Add the ROLE environment variable if the role is "standalone" or "proxy"
@@ -413,9 +405,7 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 		Image:           image,
 		ImagePullPolicy: corev1.PullAlways,
 		Ports: []corev1.ContainerPort{
-			{
-				ContainerPort: int32(sshPort),
-			},
+			{ContainerPort: int32(sshPort)},
 		},
 		Env:             envVars,
 		SecurityContext: securityContext,
@@ -461,10 +451,7 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 	// Only mount the volume if the role is not "proxy"
 	if role != "proxy" {
 		container.VolumeMounts = []corev1.VolumeMount{
-			{
-				MountPath: "/volume",
-				Name:      "my-pvc",
-			},
+			{MountPath: "/volume", Name: "my-pvc"},
 		}
 		podSpec.Spec.Volumes = []corev1.Volume{
 			{

@@ -54,13 +54,13 @@ jobs:
           kubectl apply -f test/1-pvc.yaml
           kubectl apply -f test/1-pod.yaml
           kubectl delete -f test/1-pod.yaml
-          kubectl apply -f test/pvc-2.yaml
-          kubectl apply -f test/pod-2.yaml
+          kubectl apply -f test/2-pvc.yaml
+          kubectl apply -f test/2-pod.yaml
           kubectl apply -f test/3-pvc.yaml
           kubectl apply -f test/3-pod.yaml
           kubectl delete -f test/3-pod.yaml
-          kubectl apply -f test/pvc-4.yaml
-          kubectl apply -f test/pod-4.yaml
+          kubectl apply -f test/4-pvc.yaml
+          kubectl apply -f test/4-pod.yaml
 
       - name: Install SSHFS
         run: sudo apt-get update && sudo apt-get install -y sshfs --no-install-recommends --no-install-suggests

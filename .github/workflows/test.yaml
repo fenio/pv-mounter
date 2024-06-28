@@ -55,6 +55,11 @@ jobs:
           kubectl apply -f test/pvc-2.yaml
           kubectl apply -f test/pod-1.yaml
 
+      - name: Check state of test objects
+        run: |
+          kubectl get pvc
+          kubectl get pod
+
       - name: Install SSHFS
         run: sudo apt-get update && sudo apt-get install -y sshfs --no-install-recommends --no-install-suggests
 

@@ -17,7 +17,7 @@ func runCommand(cmdStr string) error {
 
 func TestMountPVC(t *testing.T) {
 	// Run the mount command
-	err := Mount("default", "test-pvc", "~/test", false)
+	err := Mount("default", "test-pvc", "/home/runner/work/pv-mounter/pv-mounter/foo", false)
 	if err != nil {
 		t.Fatalf("Failed to mount PVC: %v", err)
 	}

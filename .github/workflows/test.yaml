@@ -57,7 +57,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y sshfs --no-install-recommends --no-install-suggests
 
       - name: Create mountpoint
-        run: mkdir ~/test
+        run: mkdir /home/runner/work/pv-mounter/pv-mounter/foo
 
       - name: Check PVC status
         run: |

@@ -6,7 +6,7 @@ spec:
   containers:
   - name: container
     image: busybox
-    command: [ "sleep", "3600" ]
+    command: [ "sleep", "1" ]
     volumeMounts:
     - mountPath: "/mnt/test"
       name: test-volume

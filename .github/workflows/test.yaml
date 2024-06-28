@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       kind:
-        image: kindest/node:v1.21.1
+        image: kindest/node:v1.30.0
         options: --privileged
 
     steps:
@@ -38,9 +38,6 @@ jobs:
 
       - name: Create Kubernetes cluster
         run: kind create cluster --wait 5m
-
-      - name: Check test files
-        run: ls -al test
 
       - name: Run tests
         env:

@@ -40,14 +40,20 @@ jobs:
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
 
-      - name: Set up kind
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+      - name: Install Minikube
+          run curl -LO "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
+          install minikube-linux-amd64 /tmp/
+          /tmp/minikube-linux-amd64 config set WantUpdateNotification false
+          /tmp/minikube-linux-amd64 start --driver=docker
 
-      - name: Create Kubernetes cluster
-        run: kind create cluster --wait 5m
+#      - name: Set up kind
+#        run: |
+#          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
+#          chmod +x ./kind
+#          sudo mv ./kind /usr/local/bin/kind
+#
+#      - name: Create Kubernetes cluster
+#        run: kind create cluster --wait 5m
 
       - name: Create StorageClass, test PVCs and PODs
         run: |

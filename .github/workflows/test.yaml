@@ -72,7 +72,7 @@ jobs:
           kubectl describe pvc pvc-1
           kubectl describe pvc pvc-2
           kubectl describe pod pod-1
-          kubectl get storageclass
+          kubectl get storageclass standard -o yaml
 
       - name: Run tests
         run: |

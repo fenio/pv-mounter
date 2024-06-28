@@ -174,26 +174,11 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 			Image:           image,
 			ImagePullPolicy: corev1.PullAlways,
 			Env: []corev1.EnvVar{
-				{
-					Name:  "ROLE",
-					Value: "ephemeral",
-				},
-				{
-					Name:  "SSH_PRIVATE_KEY",
-					Value: privateKey,
-				},
-				{
-					Name:  "PROXY_POD_IP",
-					Value: proxyPodIP,
-				},
-				{
-					Name:  "SSH_PUBLIC_KEY",
-					Value: publicKey,
-				},
-				{
-					Name:  "NEEDS_ROOT",
-					Value: fmt.Sprintf("%v", needsRoot),
-				},
+				{Name: "ROLE", Value: "ephemeral"},
+				{Name: "SSH_PRIVATE_KEY", Value: privateKey},
+				{Name: "PROXY_POD_IP", Value: proxyPodIP},
+				{Name: "SSH_PUBLIC_KEY", Value: publicKey},
+				{Name: "NEEDS_ROOT", Value: fmt.Sprintf("%v", needsRoot)},
 			},
 			SecurityContext: securityContext,
 			VolumeMounts: []corev1.VolumeMount{

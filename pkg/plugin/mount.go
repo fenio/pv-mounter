@@ -60,8 +60,7 @@ func Mount(namespace, pvcName, localMountPoint string, needsRoot bool) error {
 	// Generate the key pair once and use it for both standalone and proxy scenarios
 	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
 	if err != nil {
-		fmt.Printf("Error generating key pair: %v\n", err)
-		return err
+        	return fmt.Errorf("error generating key pair: %v", err)
 	}
 
 	//	fmt.Printf("Private Key: %s\n", privateKey)

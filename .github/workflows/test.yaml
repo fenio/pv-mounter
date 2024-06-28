@@ -75,6 +75,7 @@ jobs:
           kubectl describe pod pod-1
           kubectl get storageclass standard -o yaml
           kubectl get storageclass test -o yaml
+          kubectl get nodes
 
       - name: Run tests
         run: |

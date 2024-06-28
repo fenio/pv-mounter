@@ -58,12 +58,10 @@ jobs:
 
       - name: Build pv-mounter
         run: |
-          go build -o pv-mounter ./cmd/plugin/main.go
-          ls -al 
-          pwd
+          make bin
 
       - name: Create mountpoint
-        run: mkdir /home/runner/work/pv-mounter/pv-mounter/foo
+        run: mkdir foo
 
       - name: Check PVC status
         run: |
@@ -77,9 +75,14 @@ jobs:
 #        run: kubectl wait --for=condition=Bound pvc/test-pvc --timeout=2m
 
       - name: Run tests
-        env:
-          KUBECONFIG: ${{ secrets.KUBECONFIG }}
-        run: go test -v ./pkg/plugin
+        run: |
+          ./bin/pv-mounter mount default test-pvc foo
+          touch foo/dupa
+          ls -l foo/dupa
+          ./bin/pv-mounter clean default test-pvc foo
+#        env:
+#          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+#        run: go test -v ./pkg/plugin
 
       - name: Delete pod and PVC
         run: |

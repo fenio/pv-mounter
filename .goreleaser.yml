@@ -1,4 +1,5 @@
 project_name: pv-mounter
+version: 2
 release:
   github:
     owner: fenio

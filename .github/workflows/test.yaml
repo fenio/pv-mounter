@@ -32,14 +32,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Start microk8s
-        uses: balchua/microk8s-actions@v0.4.2
-        with:
-          addons: '["hostpath-storage"]'
-
-#      - name: Start minikube
-#        id: minikube
-#        uses: medyagh/setup-minikube@latest
+      - name: Start minikube
+        id: minikube
+        uses: medyagh/setup-minikube@latest
 
       - name: Create test PVCs and PODs
         run: kubectl apply -f test

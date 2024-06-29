@@ -179,7 +179,7 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 	return nil
 }
 
-func getPodIP(clientset *kubernetes.Clientset, namespace, podName string) (string, error) {
+func getPodIP(clientset kubernetes.Interface, namespace, podName string) (string, error) {
 	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get pod IP: %v", err)

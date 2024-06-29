@@ -1,8 +1,16 @@
 package plugin
 
 import (
+	//	"context"
+	"fmt"
 	"os"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestValidateMountPoint(t *testing.T) {
@@ -48,4 +56,63 @@ func TestValidateMountPoint_FileInsteadOfDirectory(t *testing.T) {
 	if err != nil {
 		t.Errorf("validateMountPoint(%s) returned an unexpected error: %v", tempFile.Name(), err)
 	}
+}
+
+func TestGetPodIP(t *testing.T) {
+	namespace := "default"
+	podName := "test-pod"
+	podIP := "192.168.1.1"
+
+	t.Run("Pod exists", func(t *testing.T) {
+		// Create a fake clientset
+		clientset := fake.NewSimpleClientset(&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: namespace,
+			},
+			Status: corev1.PodStatus{
+				PodIP: podIP,
+			},
+		})
+
+		// Call the function
+		ip, err := getPodIP(clientset, namespace, podName)
+		if err != nil {
+			t.Errorf("getPodIP() returned an error: %v", err)
+		}
+		if ip != podIP {
+			t.Errorf("getPodIP() returned IP %s; want %s", ip, podIP)
+		}
+	})
+
+	t.Run("Pod does not exist", func(t *testing.T) {
+		// Create a fake clientset with no pods
+		clientset := fake.NewSimpleClientset()
+
+		// Call the function
+		ip, err := getPodIP(clientset, namespace, podName)
+		if err == nil {
+			t.Errorf("getPodIP() did not return an error for non-existent pod")
+		}
+		if ip != "" {
+			t.Errorf("getPodIP() returned IP %s; want empty string", ip)
+		}
+	})
+
+	t.Run("API error", func(t *testing.T) {
+		// Create a fake clientset that will return an error
+		clientset := fake.NewSimpleClientset()
+		clientset.PrependReactor("get", "pods", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+			return true, nil, fmt.Errorf("API error")
+		})
+
+		// Call the function
+		ip, err := getPodIP(clientset, namespace, podName)
+		if err == nil {
+			t.Errorf("getPodIP() did not return an error for API error")
+		}
+		if ip != "" {
+			t.Errorf("getPodIP() returned IP %s; want empty string", ip)
+		}
+	})
 }

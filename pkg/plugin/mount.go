@@ -433,27 +433,28 @@ func getEphemeralContainerSettings(needsRoot bool) (string, *corev1.SecurityCont
 	image := Image
 	var securityContext *corev1.SecurityContext
 
+	// Define boolean pointers inline
+	allowPrivilegeEscalationTrue := true
+	allowPrivilegeEscalationFalse := false
+	readOnlyRootFilesystemTrue := true
+
 	if needsRoot {
 		image = PrivilegedImage
 		securityContext = &corev1.SecurityContext{
-			AllowPrivilegeEscalation: boolPtr(true),
-			ReadOnlyRootFilesystem:   boolPtr(true),
+			AllowPrivilegeEscalation: &allowPrivilegeEscalationTrue,
+			ReadOnlyRootFilesystem:   &readOnlyRootFilesystemTrue,
 			Capabilities: &corev1.Capabilities{
 				Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
 			},
 		}
 	} else {
 		securityContext = &corev1.SecurityContext{
-			AllowPrivilegeEscalation: boolPtr(false),
-			ReadOnlyRootFilesystem:   boolPtr(true),
+			AllowPrivilegeEscalation: &allowPrivilegeEscalationFalse,
+			ReadOnlyRootFilesystem:   &readOnlyRootFilesystemTrue,
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
 			},
 		}
 	}
 	return image, securityContext
-}
-
-func boolPtr(b bool) *bool {
-	return &b
 }

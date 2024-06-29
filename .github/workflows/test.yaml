@@ -33,6 +33,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Start minikube
         id: minikube
         uses: medyagh/setup-minikube@latest

@@ -35,6 +35,9 @@ jobs:
       - name: Start minikube
         id: minikube
         uses: medyagh/setup-minikube@latest
+        with:
+          cpus: 4
+          memory: 6000m
 
       - name: Create test PVCs and PODs
         run: kubectl apply -f test

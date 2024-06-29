@@ -33,7 +33,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Start microk8s
-        uses: balchua/microk8s-actions@v0.3.2
+        uses: balchua/microk8s-actions@v0.4.2
         with:
           addons: '["hostpath-storage"]'
 

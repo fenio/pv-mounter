@@ -34,6 +34,8 @@ jobs:
 
       - name: Start microk8s
         uses: balchua/microk8s-actions@v0.3.2
+        with:
+          addons: '["hostpath-storage"]'
 
 #      - name: Start minikube
 #        id: minikube

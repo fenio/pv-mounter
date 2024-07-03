@@ -13,7 +13,7 @@ RUN apt-get update && \
 # Copy scripts and configuration files
 COPY entrypoint.sh /entrypoint.sh
 COPY sshkey.sh /sshkey.sh
-COPY sshd_config /etc/ssh/sshd_config
+COPY sshd_config.standard /etc/ssh/sshd_config
 
 # Create user and set permissions
 RUN groupadd -r -g 2137 ve && \
@@ -29,5 +29,3 @@ USER ve
 
 # Entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
-
-

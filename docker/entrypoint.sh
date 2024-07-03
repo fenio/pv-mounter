@@ -39,5 +39,3 @@ case "$ROLE" in
         /usr/sbin/sshd -D -e -p $SSH_PORT
         ;;
 esac
-
-

@@ -58,6 +58,7 @@ See the demo below for more details.
 * You need a working SSHFS setup.
 
 Instructions for [macOS](https://osxfuse.github.io/).
+
 Instructions for [Linux](https://github.com/libfuse/sshfs).
 
 ## Quick Start
@@ -65,7 +66,7 @@ Instructions for [Linux](https://github.com/libfuse/sshfs).
 ```
 kubectl krew install pv-mounter
 
-kubectl pv-mounter mount [--needs-root] <namespace> <pvc-name> <local-mountpoint>
+kubectl pv-mounter mount [--needs-root] [--debug] <namespace> <pvc-name> <local-mountpoint>
 kubectl pv-mounter clean <namespace> <pvc-name> <local-mountpoint>
 
 ```

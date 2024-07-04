@@ -35,7 +35,7 @@ const (
 	EphemeralStorageLimit   = "2Mi"
 )
 
-func Mount(namespace, pvcName, localMountPoint string, needsRoot bool) error {
+func Mount(namespace, pvcName, localMountPoint string, needsRoot, debug bool) error {
 	checkSSHFS()
 
 	if err := validateMountPoint(localMountPoint); err != nil {
@@ -63,7 +63,9 @@ func Mount(namespace, pvcName, localMountPoint string, needsRoot bool) error {
 		return fmt.Errorf("error generating key pair: %v", err)
 	}
 
-	//	fmt.Printf("Private Key: %s\n", privateKey)
+	if debug {
+		fmt.Printf("Private Key:\n%s\n", privateKey)
+	}
 
 	if canBeMounted {
 		return handleRWX(clientset, namespace, pvcName, localMountPoint, privateKey, publicKey, needsRoot)

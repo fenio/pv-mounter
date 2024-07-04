@@ -10,9 +10,10 @@ import (
 
 func mountCmd() *cobra.Command {
 	var needsRoot bool
+	var debug bool
 
 	cmd := &cobra.Command{
-		Use:   "mount [--needs-root] <namespace> <pvc-name> <local-mount-point>",
+		Use:   "mount [--needs-root] [--debug] <namespace> <pvc-name> <local-mount-point>",
 		Short: "Mount a PVC to a local directory",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -26,10 +27,20 @@ func mountCmd() *cobra.Command {
 				}
 			}
 
+			// Check for DEBUG environment variable
+			if debugEnv, exists := os.LookupEnv("DEBUG"); exists {
+				// Convert the environment variable to a boolean
+				if parsedDebug, err := strconv.ParseBool(debugEnv); err == nil {
+					debug = parsedDebug
+				} else {
+					log.Fatalf("Invalid value for DEBUG: %v", debugEnv)
+				}
+			}
+
 			namespace := args[0]
 			pvcName := args[1]
 			localMountPoint := args[2]
-			if err := plugin.Mount(namespace, pvcName, localMountPoint, needsRoot); err != nil {
+			if err := plugin.Mount(namespace, pvcName, localMountPoint, needsRoot, debug); err != nil {
 				log.Fatalf("Failed to mount PVC: %v", err)
 			}
 			return nil
@@ -37,5 +48,6 @@ func mountCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&needsRoot, "needs-root", false, "Mount the filesystem using the root account")
+	cmd.Flags().BoolVar(&debug, "debug", false, "Enable debug mode to print additional information")
 	return cmd
 }

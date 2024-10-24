@@ -2,7 +2,7 @@ module github.com/fenio/pv-mounter
 
 go 1.22.0
 
-toolchain go1.22.3
+toolchain go1.23.2
 
 require (
 	github.com/spf13/cobra v1.8.1

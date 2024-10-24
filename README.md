@@ -1,4 +1,4 @@
-# pv-mounter 
+# pv-mounter
 
 [![build](https://github.com/fenio/pv-mounter/actions/workflows/build.yaml/badge.svg)](https://github.com/fenio/pv-mounter/actions/workflows/build.yaml)
 [![test](https://github.com/fenio/pv-mounter/actions/workflows/test.yaml/badge.svg)](https://github.com/fenio/pv-mounter/actions/workflows/test.yaml)
@@ -23,7 +23,7 @@ In fact, I didn't have to write much of the code myself, but I spent a lot of ti
 
 **Update**
 
-The above was true for versions 0.0.x. With version 0.5.0, I actually had to learn some Go. While I still used help from GPT, I had to completely change my approach. 
+The above was true for versions 0.0.x. With version 0.5.0, I actually had to learn some Go. While I still used help from GPT, I had to completely change my approach.
 AI alone wasn't able to create fully functional code that met all my requirements.
 
 I published it using the Apache-2.0 license because the initial [repository](https://github.com/replicatedhq/krew-plugin-template) was licensed this way. However, to be honest, I'm not sure how such copy-and-paste code should be licensed.
@@ -32,7 +32,7 @@ I published it using the Apache-2.0 license because the initial [repository](htt
 
 ## Rationale
 
-I often need to copy some files from my [homelab](https://github.com/fenio/homelab) which is running on Kubernetes. 
+I often need to copy some files from my [homelab](https://github.com/fenio/homelab) which is running on Kubernetes.
 Having the ability to work on these files locally greatly simplifies this task. Thus, pv-mounter was born to automate that process.
 
 ## What exactly does it do?
@@ -101,9 +101,9 @@ Above, it's not true if you're using the --needs-root option or the NEEDS_ROOT e
 
 ## Limitations
 
-The tool has a "clean" option that does its best to clean up all the resources it created for mounting the volume locally. 
-However, ephemeral containers can't be removed or deleted. That's the way Kubernetes works. 
-As part of the cleanup, this tool kills the process that keeps its ephemeral container alive. 
+The tool has a "clean" option that does its best to clean up all the resources it created for mounting the volume locally.
+However, ephemeral containers can't be removed or deleted. That's the way Kubernetes works.
+As part of the cleanup, this tool kills the process that keeps its ephemeral container alive.
 I confirmed it also kills other processes that were running in that container, but the container itself remains in a limbo state.
 
 ## Demo
@@ -118,11 +118,16 @@ Created with [VHS](https://github.com/charmbracelet/vhs) tool.
 
 ![Demo-mounted](mounted.gif)
 
-
 ### Windows
 
 Since I can't test Windows binaries, they are not included. However, since there seems to exist a working Windows implementation of SSHFS, in theory it should work.
 
 ## FAQ
 
-Ask questions first ;)
+Ask more questions, if you like ;)
+
+#### I need to run the mounter pod as root, but my [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/) blocks the creation. What needs to be done?
+
+You can add a label to the namespace you want the pod to be spawned in, to create an exception.
+
+`kubectl label namespace NAMESPACE-NAME pod-security.kubernetes.io/enforce=privileged`

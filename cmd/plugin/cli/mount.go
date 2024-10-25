@@ -2,7 +2,7 @@ package cli
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 
@@ -25,7 +25,7 @@ func mountCmd() *cobra.Command {
 				if parsedNeedsRoot, err := strconv.ParseBool(needsRootEnv); err == nil {
 					needsRoot = parsedNeedsRoot
 				} else {
-					log.Fatalf("Invalid value for NEEDS_ROOT: %v", needsRootEnv)
+					return fmt.Errorf("invalid value for NEEDS_ROOT: %v", needsRootEnv)
 				}
 			}
 
@@ -35,7 +35,7 @@ func mountCmd() *cobra.Command {
 				if parsedDebug, err := strconv.ParseBool(debugEnv); err == nil {
 					debug = parsedDebug
 				} else {
-					log.Fatalf("Invalid value for DEBUG: %v", debugEnv)
+					return fmt.Errorf("invalid value for DEBUG: %v", debugEnv)
 				}
 			}
 
@@ -47,7 +47,7 @@ func mountCmd() *cobra.Command {
 			ctx := context.Background()
 
 			if err := plugin.Mount(ctx, namespace, pvcName, localMountPoint, needsRoot, debug); err != nil {
-				log.Fatalf("Failed to mount PVC: %v", err)
+				return fmt.Errorf("failed to mount PVC: %w", err)
 			}
 			return nil
 		},

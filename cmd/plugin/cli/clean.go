@@ -2,7 +2,7 @@ package cli
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/fenio/pv-mounter/pkg/plugin"
 	"github.com/spf13/cobra"
@@ -22,7 +22,7 @@ func cleanCmd() *cobra.Command {
 			ctx := context.Background()
 
 			if err := plugin.Clean(ctx, namespace, pvcName, localMountPoint); err != nil {
-				log.Fatalf("Failed to clean PVC: %v", err)
+				return fmt.Errorf("failed to clean PVC: %w", err)
 			}
 			return nil
 		},

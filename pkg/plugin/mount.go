@@ -35,7 +35,7 @@ const (
 	EphemeralStorageLimit   = "2Mi"
 )
 
-func Mount(namespace, pvcName, localMountPoint string, needsRoot, debug bool) error {
+func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool) error {
 	checkSSHFS()
 
 	if err := validateMountPoint(localMountPoint); err != nil {
@@ -47,12 +47,12 @@ func Mount(namespace, pvcName, localMountPoint string, needsRoot, debug bool) er
 		return err
 	}
 
-	pvc, err := checkPVCUsage(clientset, namespace, pvcName)
+	pvc, err := checkPVCUsage(ctx, clientset, namespace, pvcName)
 	if err != nil {
 		return err
 	}
 
-	canBeMounted, podUsingPVC, err := checkPVAccessMode(clientset, pvc, namespace)
+	canBeMounted, podUsingPVC, err := checkPVAccessMode(ctx, clientset, pvc, namespace)
 	if err != nil {
 		return err
 	}
@@ -68,9 +68,9 @@ func Mount(namespace, pvcName, localMountPoint string, needsRoot, debug bool) er
 	}
 
 	if canBeMounted {
-		return handleRWX(clientset, namespace, pvcName, localMountPoint, privateKey, publicKey, needsRoot)
+		return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, privateKey, publicKey, needsRoot)
 	} else {
-		return handleRWO(clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey, needsRoot)
+		return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey, needsRoot)
 	}
 }
 
@@ -81,13 +81,13 @@ func validateMountPoint(localMountPoint string) error {
 	return nil
 }
 
-func handleRWX(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, privateKey, publicKey string, needsRoot bool) error {
-	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "", needsRoot)
+func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, privateKey, publicKey string, needsRoot bool) error {
+	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "", needsRoot)
 	if err != nil {
 		return err
 	}
 
-	if err := waitForPodReady(clientset, namespace, podName); err != nil {
+	if err := waitForPodReady(ctx, clientset, namespace, podName); err != nil {
 		return err
 	}
 
@@ -98,22 +98,22 @@ func handleRWX(clientset *kubernetes.Clientset, namespace, pvcName, localMountPo
 	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
-func handleRWO(clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string, needsRoot bool) error {
-	podName, port, err := setupPod(clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC, needsRoot)
+func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string, needsRoot bool) error {
+	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC, needsRoot)
 	if err != nil {
 		return err
 	}
 
-	if err := waitForPodReady(clientset, namespace, podName); err != nil {
+	if err := waitForPodReady(ctx, clientset, namespace, podName); err != nil {
 		return err
 	}
 
-	proxyPodIP, err := getPodIP(clientset, namespace, podName)
+	proxyPodIP, err := getPodIP(ctx, clientset, namespace, podName)
 	if err != nil {
 		return err
 	}
 
-	if err := createEphemeralContainer(clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP, needsRoot); err != nil {
+	if err := createEphemeralContainer(ctx, clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP, needsRoot); err != nil {
 		return err
 	}
 
@@ -124,9 +124,9 @@ func handleRWO(clientset *kubernetes.Clientset, namespace, pvcName, localMountPo
 	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
-func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool) error {
+func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool) error {
 	// Retrieve the existing pod to get the volume name
-	existingPod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get existing pod: %v", err)
 	}
@@ -172,7 +172,7 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 		return fmt.Errorf("failed to marshal ephemeral container spec: %v", err)
 	}
 
-	_, err = clientset.CoreV1().Pods(namespace).Patch(context.TODO(), podName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}, "ephemeralcontainers")
+	_, err = clientset.CoreV1().Pods(namespace).Patch(ctx, podName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}, "ephemeralcontainers")
 	if err != nil {
 		return fmt.Errorf("failed to patch pod with ephemeral container: %v", err)
 	}
@@ -181,23 +181,23 @@ func createEphemeralContainer(clientset *kubernetes.Clientset, namespace, podNam
 	return nil
 }
 
-func getPodIP(clientset kubernetes.Interface, namespace, podName string) (string, error) {
-	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+func getPodIP(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) (string, error) {
+	pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get pod IP: %v", err)
 	}
 	return pod.Status.PodIP, nil
 }
 
-func checkPVAccessMode(clientset *kubernetes.Clientset, pvc *corev1.PersistentVolumeClaim, namespace string) (bool, string, error) {
+func checkPVAccessMode(ctx context.Context, clientset *kubernetes.Clientset, pvc *corev1.PersistentVolumeClaim, namespace string) (bool, string, error) {
 	pvName := pvc.Spec.VolumeName
-	pv, err := clientset.CoreV1().PersistentVolumes().Get(context.TODO(), pvName, metav1.GetOptions{})
+	pv, err := clientset.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
 	if err != nil {
 		return true, "", fmt.Errorf("failed to get PV: %v", err)
 	}
 
 	if contains(pv.Spec.AccessModes, corev1.ReadWriteOnce) {
-		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+		podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return true, "", fmt.Errorf("failed to list pods: %v", err)
 		}
@@ -221,8 +221,8 @@ func contains(modes []corev1.PersistentVolumeAccessMode, modeToFind corev1.Persi
 	return false
 }
 
-func checkPVCUsage(clientset *kubernetes.Clientset, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
-	pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+func checkPVCUsage(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
+	pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, pvcName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PVC: %v", err)
 	}
@@ -232,19 +232,19 @@ func checkPVCUsage(clientset *kubernetes.Clientset, namespace, pvcName string) (
 	return pvc, nil
 }
 
-func setupPod(clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool) (string, int, error) {
+func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool) (string, int, error) {
 	podName, port := generatePodNameAndPort(pvcName, role)
 	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot)
-	if _, err := clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
+	if _, err := clientset.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %v", err)
 	}
 	fmt.Printf("Pod %s created successfully\n", podName)
 	return podName, port, nil
 }
 
-func waitForPodReady(clientset *kubernetes.Clientset, namespace, podName string) error {
+func waitForPodReady(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string) error {
 	return wait.PollImmediate(time.Second, 5*time.Minute, func() (bool, error) {
-		pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+		pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

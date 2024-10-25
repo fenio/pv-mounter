@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func Clean(namespace, pvcName, localMountPoint string) error {
+func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) error {
 	// Unmount the local mount point
 	var umountCmd *exec.Cmd
 	if runtime.GOOS == "darwin" {
@@ -32,7 +32,6 @@ func Clean(namespace, pvcName, localMountPoint string) error {
 		return err
 	}
 
-	ctx := context.TODO()
 	// List the pod with the PVC name label
 	podClient := clientset.CoreV1().Pods(namespace)
 	podList, err := podClient.List(ctx, metav1.ListOptions{
@@ -61,7 +60,7 @@ func Clean(namespace, pvcName, localMountPoint string) error {
 	// Check for original pod
 	originalPodName := podList.Items[0].Labels["originalPodName"]
 	if originalPodName != "" {
-		err = killProcessInEphemeralContainer(clientset, namespace, originalPodName)
+		err = killProcessInEphemeralContainer(ctx, clientset, namespace, originalPodName)
 		if err != nil {
 			return fmt.Errorf("failed to kill process in ephemeral container: %v", err)
 		}
@@ -78,9 +77,9 @@ func Clean(namespace, pvcName, localMountPoint string) error {
 	return nil
 }
 
-func killProcessInEphemeralContainer(clientset *kubernetes.Clientset, namespace, podName string) error {
+func killProcessInEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string) error {
 	// Retrieve the existing pod to get the ephemeral container name
-	existingPod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get existing pod: %v", err)
 	}
@@ -93,7 +92,7 @@ func killProcessInEphemeralContainer(clientset *kubernetes.Clientset, namespace,
 	fmt.Printf("Ephemeral container name is %s\n", ephemeralContainerName)
 
 	// Command to kill the process (adjust the process name or ID as necessary)
-	killCmd := []string{"pkill", "-f", "tail"} // Replace "process_name" with the actual process name or use a specific PID
+	killCmd := []string{"pkill", "-f", "tail"} // Replace "tail" with the actual process name or use a specific PID
 
 	cmd := exec.Command("kubectl", append([]string{"exec", podName, "-n", namespace, "-c", ephemeralContainerName, "--"}, killCmd...)...)
 	cmd.Stdout = os.Stdout

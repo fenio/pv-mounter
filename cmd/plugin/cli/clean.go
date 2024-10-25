@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"context"
+	"log"
+
 	"github.com/fenio/pv-mounter/pkg/plugin"
 	"github.com/spf13/cobra"
-	"log"
 )
 
 func cleanCmd() *cobra.Command {
@@ -15,7 +17,11 @@ func cleanCmd() *cobra.Command {
 			namespace := args[0]
 			pvcName := args[1]
 			localMountPoint := args[2]
-			if err := plugin.Clean(namespace, pvcName, localMountPoint); err != nil {
+
+			// Create a context
+			ctx := context.Background()
+
+			if err := plugin.Clean(ctx, namespace, pvcName, localMountPoint); err != nil {
 				log.Fatalf("Failed to clean PVC: %v", err)
 			}
 			return nil

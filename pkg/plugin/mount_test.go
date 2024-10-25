@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	//	"context"
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -75,8 +75,11 @@ func TestGetPodIP(t *testing.T) {
 			},
 		})
 
+		// Create a context
+		ctx := context.Background()
+
 		// Call the function
-		ip, err := getPodIP(clientset, namespace, podName)
+		ip, err := getPodIP(ctx, clientset, namespace, podName)
 		if err != nil {
 			t.Errorf("getPodIP() returned an error: %v", err)
 		}
@@ -89,8 +92,11 @@ func TestGetPodIP(t *testing.T) {
 		// Create a fake clientset with no pods
 		clientset := fake.NewSimpleClientset()
 
+		// Create a context
+		ctx := context.Background()
+
 		// Call the function
-		ip, err := getPodIP(clientset, namespace, podName)
+		ip, err := getPodIP(ctx, clientset, namespace, podName)
 		if err == nil {
 			t.Errorf("getPodIP() did not return an error for non-existent pod")
 		}
@@ -106,8 +112,11 @@ func TestGetPodIP(t *testing.T) {
 			return true, nil, fmt.Errorf("API error")
 		})
 
+		// Create a context
+		ctx := context.Background()
+
 		// Call the function
-		ip, err := getPodIP(clientset, namespace, podName)
+		ip, err := getPodIP(ctx, clientset, namespace, podName)
 		if err == nil {
 			t.Errorf("getPodIP() did not return an error for API error")
 		}

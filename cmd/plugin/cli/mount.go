@@ -1,11 +1,13 @@
 package cli
 
 import (
-	"github.com/fenio/pv-mounter/pkg/plugin"
-	"github.com/spf13/cobra"
+	"context"
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/fenio/pv-mounter/pkg/plugin"
+	"github.com/spf13/cobra"
 )
 
 func mountCmd() *cobra.Command {
@@ -40,7 +42,11 @@ func mountCmd() *cobra.Command {
 			namespace := args[0]
 			pvcName := args[1]
 			localMountPoint := args[2]
-			if err := plugin.Mount(namespace, pvcName, localMountPoint, needsRoot, debug); err != nil {
+
+			// Create a context
+			ctx := context.Background()
+
+			if err := plugin.Mount(ctx, namespace, pvcName, localMountPoint, needsRoot, debug); err != nil {
 				log.Fatalf("Failed to mount PVC: %v", err)
 			}
 			return nil

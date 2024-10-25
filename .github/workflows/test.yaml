@@ -68,6 +68,9 @@ jobs:
           kubectl get pod 
           kubectl get pvc
           kubectl get storageclass
+      - name: More details about 1st PVC
+        run: |
+          kubectl describe pvc pvc-1
 
       - name: '[TEST] PVC with RWX access mode'
         run: |

@@ -20,7 +20,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
           cache: false
 
       - uses: actions/cache@v4
@@ -68,9 +68,10 @@ jobs:
           kubectl get pod 
           kubectl get pvc
           kubectl get storageclass
-      - name: More details about 1st PVC
+
+      - name: Wait for 1st PVC to be ready
         run: |
-          kubectl describe pvc pvc-1
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-1
 
       - name: '[TEST] PVC with RWX access mode'
         run: |

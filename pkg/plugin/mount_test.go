@@ -125,3 +125,59 @@ func TestGetPodIP(t *testing.T) {
 		}
 	})
 }
+
+func TestContains(t *testing.T) {
+	modes := []corev1.PersistentVolumeAccessMode{
+		corev1.ReadWriteOnce,
+		corev1.ReadWriteMany,
+	}
+	if !contains(modes, corev1.ReadWriteOnce) {
+		t.Error("Expected mode to be found")
+	}
+	if contains(modes, corev1.ReadOnlyMany) {
+		t.Error("Did not expect mode to be found")
+	}
+}
+
+func TestGeneratePodNameAndPort(t *testing.T) {
+	name1, port1 := generatePodNameAndPort("standalone")
+	name2, port2 := generatePodNameAndPort("standalone")
+	if name1 == name2 {
+		t.Error("Expected different pod names")
+	}
+	if port1 == port2 {
+		t.Error("Expected different ports")
+	}
+}
+
+func TestCreatePodSpec(t *testing.T) {
+	podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", false)
+	if podSpec.Name != "test-pod" {
+		t.Errorf("Expected pod name 'test-pod', got '%s'", podSpec.Name)
+	}
+	// Additional checks for volumes, containers, etc.
+}
+
+func TestGetPVCVolumeName(t *testing.T) {
+	pod := &corev1.Pod{
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{
+					Name: "test-volume",
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-pvc",
+						},
+					},
+				},
+			},
+		},
+	}
+	volumeName, err := getPVCVolumeName(pod)
+	if err != nil {
+		t.Errorf("getPVCVolumeName returned an error: %v", err)
+	}
+	if volumeName != "test-volume" {
+		t.Errorf("Expected volume name 'test-volume', got '%s'", volumeName)
+	}
+}

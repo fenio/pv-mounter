@@ -125,3 +125,47 @@ func TestGetPodIP(t *testing.T) {
 		}
 	})
 }
+
+func TestCheckPVAccessMode(t *testing.T) {
+	// Create a fake clientset
+	clientset := fake.NewSimpleClientset()
+
+	// Create a test PV and PVC
+	pv := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-pv",
+		},
+		Spec: corev1.PersistentVolumeSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		},
+	}
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pvc",
+			Namespace: "default",
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			VolumeName: "test-pv",
+		},
+	}
+	_, err := clientset.CoreV1().PersistentVolumes().Create(context.TODO(), pv, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Error creating test PV: %v", err)
+	}
+	_, err = clientset.CoreV1().PersistentVolumeClaims("default").Create(context.TODO(), pvc, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Error creating test PVC: %v", err)
+	}
+
+	// Call the checkPVAccessMode function
+	canBeMounted, podUsingPVC, err := checkPVAccessMode(context.TODO(), clientset, pvc, "default")
+	if err != nil {
+		t.Errorf("checkPVAccessMode function returned an error: %v", err)
+	}
+	if !canBeMounted {
+		t.Error("checkPVAccessMode function returned false for canBeMounted, expected true")
+	}
+	if podUsingPVC != "" {
+		t.Errorf("checkPVAccessMode function returned non-empty podUsingPVC: %s", podUsingPVC)
+	}
+}

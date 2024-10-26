@@ -35,6 +35,7 @@ const (
 )
 
 func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool) error {
+
 	checkSSHFS()
 
 	if err := validateMountPoint(localMountPoint); err != nil {
@@ -56,21 +57,12 @@ func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, need
 		return err
 	}
 
-	// Generate the key pair once and use it for both standalone and proxy scenarios
-	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
-	if err != nil {
-		return fmt.Errorf("error generating key pair: %v", err)
-	}
-
-	if debug {
-		fmt.Printf("Private Key:\n%s\n", privateKey)
-	}
-
 	if canBeMounted {
-		return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, privateKey, publicKey, needsRoot)
-	} else {
-		return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey, needsRoot)
+		return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, needsRoot, debug)
 	}
+
+	return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, needsRoot, debug)
+
 }
 
 func validateMountPoint(localMountPoint string) error {
@@ -80,7 +72,17 @@ func validateMountPoint(localMountPoint string) error {
 	return nil
 }
 
-func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, privateKey, publicKey string, needsRoot bool) error {
+func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, needsRoot bool, debug bool) error {
+
+	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
+	if err != nil {
+		return fmt.Errorf("error generating key pair: %v", err)
+	}
+
+	if debug {
+		fmt.Printf("Private Key:\n%s\n", privateKey)
+	}
+
 	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "", needsRoot)
 	if err != nil {
 		return err
@@ -97,7 +99,17 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 	return mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
-func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string, needsRoot bool) error {
+func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot bool, debug bool) error {
+
+	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
+	if err != nil {
+		return fmt.Errorf("error generating key pair: %v", err)
+	}
+
+	if debug {
+		fmt.Printf("Private Key:\n%s\n", privateKey)
+	}
+
 	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC, needsRoot)
 	if err != nil {
 		return err

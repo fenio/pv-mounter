@@ -5,7 +5,6 @@ import (
 	"crypto/elliptic"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -95,7 +94,7 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
+	return mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
 func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint, podUsingPVC, privateKey, publicKey string, needsRoot bool) error {
@@ -121,7 +120,7 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return mountPVCOverSSH(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
+	return mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
 func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool) error {
@@ -233,7 +232,7 @@ func checkPVCUsage(ctx context.Context, clientset *kubernetes.Clientset, namespa
 }
 
 func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool) (string, int, error) {
-	podName, port := generatePodNameAndPort(pvcName, role)
+	podName, port := generatePodNameAndPort(role)
 	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %v", err)
@@ -243,7 +242,7 @@ func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, p
 }
 
 func waitForPodReady(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string) error {
-	return wait.PollImmediate(time.Second, 5*time.Minute, func() (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -269,13 +268,12 @@ func setupPortForwarding(namespace, podName string, port int) error {
 }
 
 func mountPVCOverSSH(
-	namespace, podName string,
 	port int,
 	localMountPoint, pvcName, privateKey string,
 	needsRoot bool) error {
 
 	// Create a temporary file to store the private key
-	tmpFile, err := ioutil.TempFile("", "ssh_key_*.pem")
+	tmpFile, err := os.CreateTemp("", "ssh_key_*.pem")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file for SSH private key: %v", err)
 	}
@@ -314,15 +312,15 @@ func mountPVCOverSSH(
 	return nil
 }
 
-func generatePodNameAndPort(pvcName, role string) (string, int) {
-	rand.Seed(time.Now().UnixNano())
+func generatePodNameAndPort(role string) (string, int) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	suffix := randSeq(5)
 	baseName := "volume-exposer"
 	if role == "proxy" {
 		baseName = "volume-exposer-proxy"
 	}
 	podName := fmt.Sprintf("%s-%s", baseName, suffix)
-	port := rand.Intn(64511) + 1024 // Generate a random port between 1024 and 65535
+	port := r.Intn(64511) + 1024 // Use the local random generator
 	return podName, port
 }
 

@@ -308,6 +308,7 @@ func mountPVCOverSSH(
 		"-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()),
 		"-o", "StrictHostKeyChecking=no",
 		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "nomap=ignore"
 		fmt.Sprintf("%s@localhost:/volume", sshUser),
 		localMountPoint,
 		"-p", fmt.Sprintf("%d", port),

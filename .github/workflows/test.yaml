@@ -44,7 +44,7 @@ jobs:
 
       - name: Start minikube
         id: minikube
-        uses: medyagh/setup-minikube@latest
+        uses: medyagh/setup-minikube@v0.0.18
         with:
           cpus: 4
           memory: 6000m
@@ -53,7 +53,7 @@ jobs:
         run: kubectl apply -f test
 
       - name: Install SSHFS
-        uses: awalsh128/cache-apt-pkgs-action@latest
+        uses: awalsh128/cache-apt-pkgs-action@v1.4.2
         with: 
           packages: sshfs openssh-client libfuse3-3
 

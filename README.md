@@ -10,6 +10,7 @@
 ![GitHub all releases](https://img.shields.io/github/downloads/fenio/pv-mounter/total)
 ![Docker Pulls](https://img.shields.io/docker/pulls/bfenski/volume-exposer?label=volume-exposer%20-%20docker%20pulls)
 ![Docker Pulls](https://img.shields.io/docker/pulls/bfenski/volume-exposer-privileged?label=volume-exposer-privileged%20-%20docker%20pulls)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ffenio%2Fpv-mounter.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Ffenio%2Fpv-mounter?ref=badge_shield)
 
 A tool to locally mount Kubernetes Persistent Volumes (PVs) using SSHFS.
 
@@ -137,3 +138,7 @@ Ask more questions, if you like ;)
 You can add a label to the namespace you want the pod to be spawned in, to create an exception.
 
 `kubectl label namespace NAMESPACE-NAME pod-security.kubernetes.io/enforce=privileged`
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ffenio%2Fpv-mounter.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Ffenio%2Fpv-mounter?ref=badge_large)

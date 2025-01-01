@@ -2,36 +2,31 @@ package cli
 
 import (
 	"errors"
-	"fmt"
 	"os"
-	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/fenio/pv-mounter/pkg/plugin"
 	"github.com/spf13/cobra"
 )
 
-// We’ll define a mock function to replace plugin.Mount for testing.
-// This way, we can see if it's called with the arguments we expect.
+// mockMountFunc is our test replacement for plugin.Mount().
+// We'll track calls in the tests below.
 var (
-	mockMountFunc        func(namespace, pvcName, localMount string, needsRoot, debug bool) error
-	originalPluginMount  = plugin.Mount
+	mockMountFunc       func(namespace, pvcName, localMount string, needsRoot, debug bool) error
+	originalPluginMount = plugin.Mount
 )
 
+// TestMain runs before any test in this file. We'll swap out plugin.Mount with
+// our mock, run tests, then restore the original function.
 func TestMain(m *testing.M) {
-	// Before running tests, replace the real plugin.Mount with our mockMount wrapper.
-	// We'll restore it after tests.
 	plugin.Mount = func(ctx interface{}, namespace, pvcName, localMount string, needsRoot, debug bool) error {
-		// We only care about the last 5 arguments for testing:
-		//   namespace, pvcName, localMount, needsRoot, debug
-		// We'll skip the first param (ctx) for simplicity.
 		return mockMountFunc(namespace, pvcName, localMount, needsRoot, debug)
 	}
 
-	// Run all tests.
 	code := m.Run()
 
-	// After tests complete, restore the original plugin.Mount function.
+	// Restore the original plugin.Mount after tests complete.
 	plugin.Mount = originalPluginMount
 
 	os.Exit(code)
@@ -41,22 +36,23 @@ func TestMountCmd(t *testing.T) {
 	tests := []struct {
 		name            string
 		args            []string
-		envNeedsRoot    string // possible values: "", "true", "false", "invalid"
-		envDebug        string // same idea
+		envNeedsRoot    string // e.g. "", "true", "false", or invalid
+		envDebug        string
 		flagNeedsRoot   bool
 		flagDebug       bool
-		expectErrSubstr string // substring of error message we expect, if any
-		expectMountCall bool
+		expectErrSubstr string
 		expectMountArgs struct {
-			namespace       string
-			pvcName         string
-			localMount      string
-			needsRoot, debug bool
+			namespace  string
+			pvcName    string
+			localMount string
+			needsRoot  bool
+			debug      bool
 		}
+		expectMountCall bool
 	}{
 		{
 			name:            "Not enough args",
-			args:            []string{"default", "my-pvc"}, // only 2 args, need 3
+			args:            []string{"default", "my-pvc"}, // only 2 instead of 3
 			expectErrSubstr: "requires exactly 3 argument(s)",
 			expectMountCall: false,
 		},
@@ -65,41 +61,47 @@ func TestMountCmd(t *testing.T) {
 			args:            []string{"default", "my-pvc", "/tmp"},
 			expectMountCall: true,
 			expectMountArgs: struct {
-				namespace       string
-				pvcName         string
-				localMount      string
-				needsRoot, debug bool
+				namespace  string
+				pvcName    string
+				localMount string
+				needsRoot  bool
+				debug      bool
 			}{
-				namespace: "default", pvcName: "my-pvc", localMount: "/tmp", needsRoot: false, debug: false,
+				namespace: "default", pvcName: "my-pvc", localMount: "/tmp",
+				needsRoot: false, debug: false,
 			},
 		},
 		{
-			name:            "NeedsRoot flag set",
-			args:            []string{"default", "my-pvc", "/tmp"},
-			flagNeedsRoot:   true,
+			name:          "NeedsRoot flag set",
+			args:          []string{"default", "my-pvc", "/tmp"},
+			flagNeedsRoot: true,
 			expectMountCall: true,
 			expectMountArgs: struct {
-				namespace       string
-				pvcName         string
-				localMount      string
-				needsRoot, debug bool
+				namespace  string
+				pvcName    string
+				localMount string
+				needsRoot  bool
+				debug      bool
 			}{
-				namespace: "default", pvcName: "my-pvc", localMount: "/tmp", needsRoot: true, debug: false,
+				namespace: "default", pvcName: "my-pvc", localMount: "/tmp",
+				needsRoot: true, debug: false,
 			},
 		},
 		{
-			name:            "Debug env set to true overrides flags",
-			args:            []string{"default", "my-pvc", "/tmp"},
-			envDebug:        "true",
-			flagDebug:       false, // Even if false by flag, env will override to true
+			name:      "Debug env set to true overrides flag",
+			args:      []string{"default", "my-pvc", "/tmp"},
+			envDebug:  "true",
+			flagDebug: false, // env should override to true
 			expectMountCall: true,
 			expectMountArgs: struct {
-				namespace       string
-				pvcName         string
-				localMount      string
-				needsRoot, debug bool
+				namespace  string
+				pvcName    string
+				localMount string
+				needsRoot  bool
+				debug      bool
 			}{
-				namespace: "default", pvcName: "my-pvc", localMount: "/tmp", needsRoot: false, debug: true,
+				namespace: "default", pvcName: "my-pvc", localMount: "/tmp",
+				needsRoot: false, debug: true,
 			},
 		},
 		{
@@ -119,7 +121,7 @@ func TestMountCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup environment variables
+			// Setup env vars if specified
 			if tt.envNeedsRoot != "" {
 				os.Setenv("NEEDS_ROOT", tt.envNeedsRoot)
 				defer os.Unsetenv("NEEDS_ROOT")
@@ -133,42 +135,54 @@ func TestMountCmd(t *testing.T) {
 				os.Unsetenv("DEBUG")
 			}
 
-			// Prepare our mockMountFunc to track calls:
+			// Reset or define our mockMountFunc for each test
 			mockMountFunc = func(namespace, pvcName, localMount string, needsRoot, debug bool) error {
-				if tt.expectMountArgs.namespace != "" && namespace != tt.expectMountArgs.namespace {
-					t.Errorf("Mount called with namespace=%q; want %q", namespace, tt.expectMountArgs.namespace)
+				// Check if the user expected plugin.Mount to be called or not
+				// We'll rely on expectMountCall to see if they wanted this called at all.
+				if tt.expectMountCall {
+					// Validate the arguments if they've been set
+					if tt.expectMountArgs.namespace != "" && tt.expectMountArgs.namespace != namespace {
+						t.Errorf("Mount called with namespace=%q; want %q", namespace, tt.expectMountArgs.namespace)
+					}
+					if tt.expectMountArgs.pvcName != "" && tt.expectMountArgs.pvcName != pvcName {
+						t.Errorf("Mount called with pvcName=%q; want %q", pvcName, tt.expectMountArgs.pvcName)
+					}
+					if tt.expectMountArgs.localMount != "" && tt.expectMountArgs.localMount != localMount {
+						t.Errorf("Mount called with localMount=%q; want %q", localMount, tt.expectMountArgs.localMount)
+					}
+					if needsRoot != tt.expectMountArgs.needsRoot {
+						t.Errorf("Mount called with needsRoot=%v; want %v", needsRoot, tt.expectMountArgs.needsRoot)
+					}
+					if debug != tt.expectMountArgs.debug {
+						t.Errorf("Mount called with debug=%v; want %v", debug, tt.expectMountArgs.debug)
+					}
+					// Simulate an error if the test expects one
+					if tt.expectErrSubstr != "" {
+						return errors.New("mock mount error")
+					}
+				} else {
+					// If we did NOT expect a call, but it happened, that's an error
+					t.Errorf("plugin.Mount was called unexpectedly!")
 				}
-				if tt.expectMountArgs.pvcName != "" && pvcName != tt.expectMountArgs.pvcName {
-					t.Errorf("Mount called with pvcName=%q; want %q", pvcName, tt.expectMountArgs.pvcName)
-				}
-				if tt.expectMountArgs.localMount != "" && localMount != tt.expectMountArgs.localMount {
-					t.Errorf("Mount called with localMount=%q; want %q", localMount, tt.expectMountArgs.localMount)
-				}
-				if needsRoot != tt.expectMountArgs.needsRoot {
-					t.Errorf("Mount called with needsRoot=%v; want %v", needsRoot, tt.expectMountArgs.needsRoot)
-				}
-				if debug != tt.expectMountArgs.debug {
-					t.Errorf("Mount called with debug=%v; want %v", debug, tt.expectMountArgs.debug)
-				}
-				if tt.expectErrSubstr != "" {
-					return errors.New("mock mount error") // triggers test for error substring
-				}
+
 				return nil
 			}
 
-			// Build the command, set flags and args
+			// Build the mount command
 			cmd := mountCmd()
-			cmd.Flags().BoolVar(&tt.flagNeedsRoot, "needs-root", tt.flagNeedsRoot, "")
-			cmd.Flags().BoolVar(&tt.flagDebug, "debug", tt.flagDebug, "")
 
-			// Alternatively, you can call `cmd.SetArgs([]string{...})`
-			// and rely on the built-in flags. But for demonstration,
-			// we manually set them above, then do this:
+			// Manually set the flags to simulate user input
+			cmd.Flags().Bool("needs-root", tt.flagNeedsRoot, "")
+			cmd.Flags().Bool("debug", tt.flagDebug, "")
+			// Alternatively, cmd.SetArgs can parse the flags out of the slice
+			// but if we do it that way, we'd do something like:
+			// cmd.SetArgs(append(tt.args, "--needs-root="+strconv.FormatBool(tt.flagNeedsRoot)))
+			// For simplicity, let's keep these two separate.
+
+			// Now set the positional args
 			cmd.SetArgs(tt.args)
 
-			// Execute
 			err := cmd.Execute()
-
 			if err != nil && tt.expectErrSubstr == "" {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -177,28 +191,17 @@ func TestMountCmd(t *testing.T) {
 			}
 			if err != nil && tt.expectErrSubstr != "" {
 				// Check if error message contains the substring
-				if !containsSubstring(err.Error(), tt.expectErrSubstr) {
+				if !strings.Contains(err.Error(), tt.expectErrSubstr) {
 					t.Errorf("Expected error to contain %q, got %v", tt.expectErrSubstr, err)
 				}
 			}
-
-			// If we expected no mount call but it was triggered, or vice versa
-			// there's no direct "call count" check here, but you can add one by
-			// e.g. having a global counter.
-			//
-			// For demonstration, we only tested the arguments or error from mount.
-			// If you want to ensure "no call" was made, you'd set a global bool
-			// in mockMountFunc and verify it afterwards.
 		})
 	}
 }
 
-// Utility helper to check if a substring is in a string.
-func containsSubstring(str, substr string) bool {
-	return len(str) >= len(substr) && (str == substr || (len(str) > len(substr) && (func() bool {
-		return (len(str) > 0 && len(substr) > 0 && ( // naive
-			str[0:len(substr)] == substr || // at start
-			strings.Contains(str, substr))
-	})()))
+// Helper for checking substring
+// (We can just do strings.Contains in-line, but let's keep a helper.)
+func containsSubstring(haystack, needle string) bool {
+	return strings.Contains(haystack, needle)
 }
 

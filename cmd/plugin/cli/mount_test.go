@@ -4,7 +4,6 @@ import (
     "os"
     "testing"
 
-    "github.com/spf13/cobra"
     "github.com/stretchr/testify/assert"
 )
 

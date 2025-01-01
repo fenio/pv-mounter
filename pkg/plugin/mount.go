@@ -34,6 +34,8 @@ const (
 	EphemeralStorageLimit   = "2Mi"
 )
 
+var DefaultID int64 = 2137
+
 func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool) error {
 
 	checkSSHFS()
@@ -450,6 +452,12 @@ func getEphemeralContainerSettings(needsRoot bool) (string, *corev1.SecurityCont
 	allowPrivilegeEscalationTrue := true
 	allowPrivilegeEscalationFalse := false
 	readOnlyRootFilesystemTrue := true
+	runAsNonRootTrue := true
+
+	// Define seccomp profile type
+	seccompProfileRuntimeDefault := corev1.SeccompProfile{
+		Type: corev1.SeccompProfileTypeRuntimeDefault,
+	}
 
 	if needsRoot {
 		image = PrivilegedImage
@@ -459,6 +467,7 @@ func getEphemeralContainerSettings(needsRoot bool) (string, *corev1.SecurityCont
 			Capabilities: &corev1.Capabilities{
 				Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
 			},
+			SeccompProfile: &seccompProfileRuntimeDefault,
 		}
 	} else {
 		securityContext = &corev1.SecurityContext{
@@ -467,6 +476,10 @@ func getEphemeralContainerSettings(needsRoot bool) (string, *corev1.SecurityCont
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
 			},
+			SeccompProfile: &seccompProfileRuntimeDefault,
+			RunAsUser:      &DefaultID,
+			RunAsGroup:     &DefaultID,
+			RunAsNonRoot:   &runAsNonRootTrue,
 		}
 	}
 	return image, securityContext

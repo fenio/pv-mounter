@@ -35,6 +35,10 @@ I published it using the Apache-2.0 license because the initial [repository](htt
 I often need to copy some files from my [homelab](https://github.com/fenio/homelab) which is running on Kubernetes.
 Having the ability to work on these files locally greatly simplifies this task. Thus, pv-mounter was born to automate that process.
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=fenio/pv-mounter&type=Date)](https://star-history.com/#fenio/pv-mounter&Date)
+
 ## What exactly does it do?
 
 It performs a few tasks. In the case of volumes with RWX (ReadWriteMany) access mode or unmounted RWO (ReadWriteOnce):

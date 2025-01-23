@@ -44,7 +44,7 @@ jobs:
 
       - name: Start minikube
         id: minikube
-        uses: medyagh/setup-minikube@v0.0.18
+        uses: medyagh/setup-minikube@v0.0.19
         with:
           cpus: 4
           memory: 6000m

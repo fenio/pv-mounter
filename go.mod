@@ -2,16 +2,14 @@ module github.com/fenio/pv-mounter
 
 go 1.24.0
 
-toolchain go1.24.0
-
 require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	golang.org/x/crypto v0.33.0
-	k8s.io/api v0.32.1
-	k8s.io/apimachinery v0.32.1
+	k8s.io/api v0.32.2
+	k8s.io/apimachinery v0.32.2
 	k8s.io/cli-runtime v0.32.1
-	k8s.io/client-go v0.32.1
+	k8s.io/client-go v0.32.2
 )
 
 require (

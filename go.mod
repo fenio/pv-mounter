@@ -8,8 +8,8 @@ require (
 	golang.org/x/crypto v0.36.0
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3
-	k8s.io/cli-runtime v0.32.2
-	k8s.io/client-go v0.32.2
+	k8s.io/cli-runtime v0.32.3
+	k8s.io/client-go v0.32.3
 )
 
 require (

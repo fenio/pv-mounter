@@ -11,6 +11,7 @@
 ![Docker Pulls](https://img.shields.io/docker/pulls/bfenski/volume-exposer?label=volume-exposer%20-%20docker%20pulls)
 ![Docker Pulls](https://img.shields.io/docker/pulls/bfenski/volume-exposer-privileged?label=volume-exposer-privileged%20-%20docker%20pulls)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/fenio/pv-mounter/badge)](https://scorecard.dev/viewer/?uri=github.com/fenio/pv-mounter)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/9551/badge)](https://www.bestpractices.dev/projects/9551)
 
 A tool to locally mount Kubernetes Persistent Volumes (PVs) using SSHFS.
 

@@ -16,8 +16,7 @@ builds:
       - CGO_ENABLED=0
       - GO111MODULE=on
     main: cmd/plugin/main.go
-    ldflags: -s -w
-      -X github.com/fenio/pv-mounter/pkg/version.version=
+    ldflags: -s -w -X github.com/fenio/pv-mounter/pkg/version.version=
 archives:
   - id: pv-mounter
     ids:

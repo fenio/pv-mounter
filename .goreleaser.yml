@@ -20,7 +20,7 @@ builds:
       -X github.com/fenio/pv-mounter/pkg/version.version=
 archives:
   - id: pv-mounter
-    builds:
+    ids:
     - pv-mounter
     name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
 

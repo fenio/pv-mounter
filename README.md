@@ -74,7 +74,7 @@ Instructions for [macOS](https://osxfuse.github.io/).
 
 Instructions for [Linux](https://github.com/libfuse/sshfs).
 
-## Quick Start
+## Quick Start / Usage
 
 ```
 kubectl krew install pv-mounter

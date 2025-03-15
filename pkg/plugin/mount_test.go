@@ -151,7 +151,7 @@ func TestGeneratePodNameAndPort(t *testing.T) {
 }
 
 func TestCreatePodSpec(t *testing.T) {
-	podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", false)
+	podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", false, "whatever", "secret")
 	if podSpec.Name != "test-pod" {
 		t.Errorf("Expected pod name 'test-pod', got '%s'", podSpec.Name)
 	}

@@ -36,35 +36,27 @@ const (
 
 var DefaultID int64 = 2137
 
-func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool) error {
-
+func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret string) error {
 	checkSSHFS()
-
 	if err := validateMountPoint(localMountPoint); err != nil {
 		return err
 	}
-
 	clientset, err := BuildKubeClient()
 	if err != nil {
 		return err
 	}
-
 	pvc, err := checkPVCUsage(ctx, clientset, namespace, pvcName)
 	if err != nil {
 		return err
 	}
-
 	canBeMounted, podUsingPVC, err := checkPVAccessMode(ctx, clientset, pvc, namespace)
 	if err != nil {
 		return err
 	}
-
 	if canBeMounted {
-		return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, needsRoot, debug)
+		return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret)
 	}
-
-	return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, needsRoot, debug)
-
+	return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, needsRoot, debug, image, imageSecret)
 }
 
 func validateMountPoint(localMountPoint string) error {
@@ -74,90 +66,79 @@ func validateMountPoint(localMountPoint string) error {
 	return nil
 }
 
-func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, needsRoot bool, debug bool) error {
-
+func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret string) error {
 	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
 	if err != nil {
 		return fmt.Errorf("error generating key pair: %v", err)
 	}
-
 	if debug {
 		fmt.Printf("Private Key:\n%s\n", privateKey)
 	}
-
-	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "", needsRoot)
+	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "", needsRoot, image, imageSecret)
 	if err != nil {
 		return err
 	}
-
 	if err := waitForPodReady(ctx, clientset, namespace, podName); err != nil {
 		return err
 	}
-
 	if err := setupPortForwarding(namespace, podName, port); err != nil {
 		return err
 	}
-
 	return mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
-func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot bool, debug bool) error {
-
+func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret string) error {
 	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
 	if err != nil {
 		return fmt.Errorf("error generating key pair: %v", err)
 	}
-
 	if debug {
 		fmt.Printf("Private Key:\n%s\n", privateKey)
 	}
-
-	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC, needsRoot)
+	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC, needsRoot, image, imageSecret)
 	if err != nil {
 		return err
 	}
-
 	if err := waitForPodReady(ctx, clientset, namespace, podName); err != nil {
 		return err
 	}
-
 	proxyPodIP, err := getPodIP(ctx, clientset, namespace, podName)
 	if err != nil {
 		return err
 	}
-
-	if err := createEphemeralContainer(ctx, clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP, needsRoot); err != nil {
+	if err := createEphemeralContainer(ctx, clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP, needsRoot, image); err != nil {
 		return err
 	}
-
 	if err := setupPortForwarding(namespace, podName, port); err != nil {
 		return err
 	}
-
 	return mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
-func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool) error {
-	// Retrieve the existing pod to get the volume name
+func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error {
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get existing pod: %v", err)
 	}
-
 	volumeName, err := getPVCVolumeName(existingPod)
 	if err != nil {
 		return err
 	}
-
 	ephemeralContainerName := fmt.Sprintf("volume-exposer-ephemeral-%s", randSeq(5))
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
-
-	image, securityContext := getEphemeralContainerSettings(needsRoot)
-
+	imageToUse := image
+	if imageToUse == "" {
+		if needsRoot {
+			imageToUse = PrivilegedImage
+		} else {
+			imageToUse = Image
+		}
+	}
+	securityContext := getSecurityContext(needsRoot)
 	ephemeralContainer := corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:            ephemeralContainerName,
-			Image:           image,
+			Image:           imageToUse,
 			ImagePullPolicy: corev1.PullAlways,
 			Env: []corev1.EnvVar{
 				{Name: "ROLE", Value: "ephemeral"},
@@ -175,7 +156,6 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 			},
 		},
 	}
-
 	patchData, err := json.Marshal(map[string]interface{}{
 		"spec": map[string]interface{}{
 			"ephemeralContainers": []corev1.EphemeralContainer{ephemeralContainer},
@@ -184,12 +164,10 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 	if err != nil {
 		return fmt.Errorf("failed to marshal ephemeral container spec: %v", err)
 	}
-
 	_, err = clientset.CoreV1().Pods(namespace).Patch(ctx, podName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}, "ephemeralcontainers")
 	if err != nil {
 		return fmt.Errorf("failed to patch pod with ephemeral container: %v", err)
 	}
-
 	fmt.Printf("Successfully added ephemeral container %s to pod %s\n", ephemeralContainerName, podName)
 	return nil
 }
@@ -245,9 +223,9 @@ func checkPVCUsage(ctx context.Context, clientset *kubernetes.Clientset, namespa
 	return pvc, nil
 }
 
-func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool) (string, int, error) {
+func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret string) (string, int, error) {
 	podName, port := generatePodNameAndPort(role)
-	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot)
+	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot, image, imageSecret)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %v", err)
 	}
@@ -339,24 +317,27 @@ func generatePodNameAndPort(role string) (string, int) {
 	return podName, port
 }
 
-func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool) *corev1.Pod {
-
+func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret string) *corev1.Pod {
 	envVars := []corev1.EnvVar{
 		{Name: "SSH_PUBLIC_KEY", Value: publicKey},
 		{Name: "SSH_PORT", Value: fmt.Sprintf("%d", sshPort)},
 		{Name: "NEEDS_ROOT", Value: fmt.Sprintf("%v", needsRoot)},
 	}
-
-	// Add the ROLE environment variable if the role is "standalone" or "proxy"
 	if role == "standalone" || role == "proxy" {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "ROLE",
 			Value: role,
 		})
 	}
-
-	image, securityContext := getEphemeralContainerSettings(needsRoot)
-
+	imageToUse := image
+	if imageToUse == "" {
+		if needsRoot {
+			imageToUse = PrivilegedImage
+		} else {
+			imageToUse = Image
+		}
+	}
+	securityContext := getSecurityContext(needsRoot)
 	runAsNonRoot := !needsRoot
 	runAsUser := int64(DefaultUserGroup)
 	runAsGroup := int64(DefaultUserGroup)
@@ -364,10 +345,9 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 		runAsUser = 0
 		runAsGroup = 0
 	}
-
 	container := corev1.Container{
 		Name:            "volume-exposer",
-		Image:           image,
+		Image:           imageToUse,
 		ImagePullPolicy: corev1.PullAlways,
 		Ports: []corev1.ContainerPort{
 			{ContainerPort: int32(sshPort)},
@@ -386,18 +366,18 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 			},
 		},
 	}
-
 	labels := map[string]string{
 		"app":        "volume-exposer",
 		"pvcName":    pvcName,
 		"portNumber": fmt.Sprintf("%d", port),
 	}
-
-	// Add the original pod name label if provided
 	if originalPodName != "" {
 		labels["originalPodName"] = originalPodName
 	}
-
+	imagePullSecrets := []corev1.LocalObjectReference{}
+	if imageSecret != "" {
+		imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: imageSecret})
+	}
 	podSpec := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   podName,
@@ -410,10 +390,9 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 				RunAsUser:    &runAsUser,
 				RunAsGroup:   &runAsGroup,
 			},
+			ImagePullSecrets: imagePullSecrets,
 		},
 	}
-
-	// Only mount the volume if the role is not "proxy"
 	if role != "proxy" {
 		container.VolumeMounts = []corev1.VolumeMount{
 			{MountPath: "/volume", Name: "my-pvc"},
@@ -428,10 +407,8 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 				},
 			},
 		}
-		// Update the container in the podSpec with the volume mounts
 		podSpec.Spec.Containers[0] = container
 	}
-
 	return podSpec
 }
 
@@ -483,4 +460,36 @@ func getEphemeralContainerSettings(needsRoot bool) (string, *corev1.SecurityCont
 		}
 	}
 	return image, securityContext
+}
+
+func getSecurityContext(needsRoot bool) *corev1.SecurityContext {
+	allowPrivilegeEscalationTrue := true
+	allowPrivilegeEscalationFalse := false
+	readOnlyRootFilesystemTrue := true
+	runAsNonRootTrue := true
+	seccompProfileRuntimeDefault := corev1.SeccompProfile{
+		Type: corev1.SeccompProfileTypeRuntimeDefault,
+	}
+	if needsRoot {
+		return &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &allowPrivilegeEscalationTrue,
+			ReadOnlyRootFilesystem:   &readOnlyRootFilesystemTrue,
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
+			},
+			SeccompProfile: &seccompProfileRuntimeDefault,
+		}
+	} else {
+		return &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &allowPrivilegeEscalationFalse,
+			ReadOnlyRootFilesystem:   &readOnlyRootFilesystemTrue,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			SeccompProfile: &seccompProfileRuntimeDefault,
+			RunAsUser:      &DefaultID,
+			RunAsGroup:     &DefaultID,
+			RunAsNonRoot:   &runAsNonRootTrue,
+		}
+	}
 }

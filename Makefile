@@ -16,9 +16,10 @@ fmt:
 .PHONY: vet
 vet:
 	go vet ./pkg/... ./cmd/..
-.
+
 .PHONY: docs
 docs:
+	go mod tidy
 	go run cmd/docgen/main.go
 
 .PHONY: kubernetes-deps

@@ -17,6 +17,22 @@ func mountCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mount [--needs-root] [--debug] [--image] [--image-secret] <namespace> <pvc-name> <local-mount-point>",
 		Short: "Mount a PVC to a local directory",
+		Long: `Mount a Kubernetes Persistent Volume Claim to a local directory using SSHFS.
+
+Requires:
+- SSHFS installed locally
+- kubectl configured with cluster access
+
+Examples:
+  # Basic mount
+  kubectl pv-mounter mount default my-pvc ./mnt
+  
+  # Mount with root access
+  kubectl pv-mounter mount --needs-root default my-pvc ./mnt
+  
+  # Mount with debug output
+  kubectl pv-mounter mount --debug default my-pvc ./mnt`,
+  
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if needsRootEnv, exists := os.LookupEnv("NEEDS_ROOT"); exists {

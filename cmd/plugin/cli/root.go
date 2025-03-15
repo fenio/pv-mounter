@@ -16,10 +16,18 @@ var (
 )
 
 func init() {
+
 	rootCmd = &cobra.Command{
 		Use:   "pv-mounter",
-		Short: "A tool to mount and unmount PVs",
-		Long:  `A tool to mount and unmount PVs using SSHFS.`,
+		Short: "Mount/unmount Kubernetes PVCs locally via SSHFS",
+		Long: `A Kubernetes plugin for direct PVC access through SSHFS mounting.
+		
+Examples:
+  # Mount a PVC
+  kubectl pv-mounter mount my-namespace my-pvc ./local-mount
+  
+  # Clean up a mounted PVC
+  kubectl pv-mounter clean my-namespace my-pvc ./local-mount`,
 	}
 
 	if strings.HasPrefix(filepath.Base(os.Args[0]), "kubectl-") {

@@ -20,6 +20,7 @@ vet:
 .PHONY: docs
 docs:
 	go mod tidy
+	rm -rf docs/commands
 	go run cmd/docgen/main.go
 
 .PHONY: kubernetes-deps

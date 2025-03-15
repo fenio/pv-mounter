@@ -79,8 +79,8 @@ Instructions for [Linux](https://github.com/libfuse/sshfs).
 ```
 kubectl krew install pv-mounter
 
-kubectl pv-mounter mount [--needs-root] [--debug] <namespace> <pvc-name> <local-mountpoint>
-kubectl pv-mounter clean <namespace> <pvc-name> <local-mountpoint>
+kubectl pv-mounter mount [--needs-root] [--debug] [--image] [--image-secret] <namespace> <pvc-name> <local-mount-point> [flags]
+kubectl pv-mounter clean <namespace> <pvc-name> <local-mount-point> [flags]
 
 ```
 

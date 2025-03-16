@@ -1,4 +1,3 @@
-
 export GO111MODULE=on
 
 .PHONY: test
@@ -24,3 +23,6 @@ kubernetes-deps:
 	go get k8s.io/apimachinery@kubernetes-1.14.0
 	go get k8s.io/cli-runtime@kubernetes-1.14.0
 
+.PHONY: docs
+docs:
+	go run cmd/plugin/cli/docs.go

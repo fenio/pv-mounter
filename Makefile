@@ -25,4 +25,4 @@ kubernetes-deps:
 
 .PHONY: docs
 docs:
-	go run cmd/plugin/cli/docs.go
+	go run cmd/plugin/docs/docs.go

@@ -11,16 +11,27 @@ import (
 )
 
 var KubernetesConfigFlags *genericclioptions.ConfigFlags
+var rootCmd *cobra.Command
 
 func RootCmd() *cobra.Command {
-	rootCmd := &cobra.Command{
+	if rootCmd != nil {
+		return rootCmd
+	}
+
+	rootCmd = &cobra.Command{
 		Use:   "pv-mounter",
-		Short: "A tool to mount and unmount Kubernetes PersistentVolumes using SSHFS",
+		Short: "Mount and unmount Kubernetes PersistentVolumes using SSHFS",
 		Long: `pv-mounter is a kubectl plugin that allows you to easily mount and unmount
 Kubernetes PersistentVolumeClaims (PVCs) locally via SSHFS.
 
-It handles the creation of proxy pods, ephemeral containers, port-forwarding,
-and SSHFS connections transparently.`,
+It transparently manages proxy pods, ephemeral containers, port-forwarding,
+and SSHFS connections.`,
+	}
+
+	if strings.HasPrefix(filepath.Base(os.Args[0]), "kubectl-") {
+		rootCmd.Annotations = map[string]string{
+			cobra.CommandDisplayNameAnnotation: "kubectl pv-mounter",
+		}
 	}
 
 	rootCmd.AddCommand(mountCmd())
@@ -44,11 +55,7 @@ Examples:
   kubectl pv-mounter clean default my-pvc /mnt/data
 
 Use "kubectl pv-mounter [command] --help" for more information about a command.
-`,
-	}
-
-	rootCmd.AddCommand(mountCmd())
-	rootCmd.AddCommand(cleanCmd())
+`)
 
 	return rootCmd
 }

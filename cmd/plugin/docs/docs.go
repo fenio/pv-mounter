@@ -22,3 +22,4 @@ func main() {
 
 	log.Printf("CLI documentation generated successfully in %s", outputDir)
 }
+

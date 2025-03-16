@@ -10,16 +10,22 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
-var (
-	KubernetesConfigFlags *genericclioptions.ConfigFlags
-	rootCmd               *cobra.Command
-)
+var KubernetesConfigFlags *genericclioptions.ConfigFlags
+var rootCmd *cobra.Command
 
-func init() {
+func RootCmd() *cobra.Command {
+	if rootCmd != nil {
+		return rootCmd
+	}
+
 	rootCmd = &cobra.Command{
 		Use:   "pv-mounter",
-		Short: "A tool to mount and unmount PVs",
-		Long:  `A tool to mount and unmount PVs using SSHFS.`,
+		Short: "Mount and unmount Kubernetes PersistentVolumes using SSHFS",
+		Long: `pv-mounter is a kubectl plugin that allows you to easily mount and unmount
+Kubernetes PersistentVolumeClaims (PVCs) locally via SSHFS.
+
+It transparently manages proxy pods, ephemeral containers, port-forwarding,
+and SSHFS connections.`,
 	}
 
 	if strings.HasPrefix(filepath.Base(os.Args[0]), "kubectl-") {
@@ -30,9 +36,27 @@ func init() {
 
 	rootCmd.AddCommand(mountCmd())
 	rootCmd.AddCommand(cleanCmd())
-}
 
-func RootCmd() *cobra.Command {
+	rootCmd.SetUsageTemplate(`
+Usage:
+  kubectl pv-mounter [command]
+
+Available Commands:
+{{range .Commands}}{{printf "  %-15s %s\n" .Name .Short}}{{end}}
+
+Flags:
+{{.PersistentFlags.FlagUsages | trimTrailingWhitespaces}}
+
+Examples:
+  # Mount a PVC named 'my-pvc' from namespace 'default' to '/mnt/data'
+  kubectl pv-mounter mount default my-pvc /mnt/data
+
+  # Clean resources associated with 'my-pvc'
+  kubectl pv-mounter clean default my-pvc /mnt/data
+
+Use "kubectl pv-mounter [command] --help" for more information about a command.
+`)
+
 	return rootCmd
 }
 

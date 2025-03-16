@@ -3,10 +3,11 @@ package cli
 import (
 	"context"
 	"fmt"
-	"github.com/fenio/pv-mounter/pkg/plugin"
-	"github.com/spf13/cobra"
 	"os"
 	"strconv"
+
+	"github.com/fenio/pv-mounter/pkg/plugin"
+	"github.com/spf13/cobra"
 )
 
 func mountCmd() *cobra.Command {
@@ -14,44 +15,77 @@ func mountCmd() *cobra.Command {
 	var debug bool
 	var image string
 	var imageSecret string
+
 	cmd := &cobra.Command{
-		Use:   "mount [--needs-root] [--debug] [--image] [--image-secret] <namespace> <pvc-name> <local-mount-point>",
-		Short: "Mount a PVC to a local directory",
-		Args:  cobra.ExactArgs(3),
+		Use:   "mount [flags] <namespace> <pvc-name> <local-mount-point>",
+		Short: "Mount a PersistentVolumeClaim (PVC) to a local directory using SSHFS.",
+		Long: `Mount a PersistentVolumeClaim (PVC) to a local directory using SSHFS.
+
+This command sets up necessary Kubernetes resources and establishes an SSHFS connection
+to mount the specified PVC locally.`,
+		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if needsRootEnv, exists := os.LookupEnv("NEEDS_ROOT"); exists {
-				if parsedNeedsRoot, err := strconv.ParseBool(needsRootEnv); err == nil {
-					needsRoot = parsedNeedsRoot
+			if env, exists := os.LookupEnv("NEEDS_ROOT"); exists {
+				if parsed, err := strconv.ParseBool(env); err == nil {
+					needsRoot = parsed
 				} else {
-					return fmt.Errorf("invalid value for NEEDS_ROOT: %v", needsRootEnv)
+					return fmt.Errorf("invalid value for NEEDS_ROOT: %v", env)
 				}
 			}
-			if debugEnv, exists := os.LookupEnv("DEBUG"); exists {
-				if parsedDebug, err := strconv.ParseBool(debugEnv); err == nil {
-					debug = parsedDebug
+
+			if env, exists := os.LookupEnv("DEBUG"); exists {
+				if parsed, err := strconv.ParseBool(env); err == nil {
+					debug = parsed
 				} else {
-					return fmt.Errorf("invalid value for DEBUG: %v", debugEnv)
+					return fmt.Errorf("invalid value for DEBUG: %v", env)
 				}
 			}
-			if imageEnv, exists := os.LookupEnv("IMAGE"); exists {
-				image = imageEnv
+
+			if env, exists := os.LookupEnv("IMAGE"); exists && image == "" {
+				image = env
 			}
-			if imageSecretEnv, exists := os.LookupEnv("IMAGE_SECRET"); exists {
-				imageSecret = imageSecretEnv
+
+			if env, exists := os.LookupEnv("IMAGE_SECRET"); exists && imageSecret == "" {
+				imageSecret = env
 			}
-			namespace := args[0]
-			pvcName := args[1]
-			localMountPoint := args[2]
+
+			namespace, pvcName, localMountPoint := args[0], args[1], args[2]
 			ctx := context.Background()
-			if err := plugin.Mount(ctx, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret); err != nil {
-				return fmt.Errorf("failed to mount PVC: %w", err)
-			}
-			return nil
+
+			return plugin.Mount(ctx, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret)
 		},
 	}
-	cmd.Flags().BoolVar(&needsRoot, "needs-root", false, "Mount the filesystem using the root account")
-	cmd.Flags().BoolVar(&debug, "debug", false, "Enable debug mode to print additional information")
-	cmd.Flags().StringVar(&image, "image", "", "Custom container image for the volume-exposer")
-	cmd.Flags().StringVar(&imageSecret, "image-secret", "", "Kubernetes secret name for accessing private registry")
+
+	cmd.Flags().BoolVar(&needsRoot, "needs-root", false, "Mount the filesystem using the root account (default: false)")
+	cmd.Flags().BoolVar(&debug, "debug", false, "Enable debug mode to print additional information (default: false)")
+	cmd.Flags().StringVar(&image, "image", "", "Custom container image for the volume-exposer (optional)")
+	cmd.Flags().StringVar(&imageSecret, "image-secret", "", "Kubernetes secret name for accessing private registry (optional)")
+
+	cmd.SetUsageTemplate(`
+Usage:
+  kubectl pv-mounter mount [flags] <namespace> <pvc-name> <local-mount-point>
+
+Arguments:
+  namespace             Kubernetes namespace containing the PVC
+  pvc-name              Name of the PersistentVolumeClaim to mount
+  local-mount-point     Local directory path where the PVC will be mounted
+
+Flags:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}
+
+Examples:
+  # Mount a PVC named 'my-pvc' from namespace 'default' to '/mnt/data'
+  kubectl pv-mounter mount default my-pvc /mnt/data
+
+  # Mount with root privileges and debug enabled
+  kubectl pv-mounter mount --needs-root --debug default my-pvc /mnt/data
+
+Environment Variables:
+  NEEDS_ROOT       Set to 'true' to mount with root privileges by default
+  DEBUG            Set to 'true' to enable debug mode by default
+  IMAGE            Specify default custom container image
+  IMAGE_SECRET     Specify default Kubernetes secret for private registry access
+`)
+
 	return cmd
 }

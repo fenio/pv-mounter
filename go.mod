@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/spf13/cobra v1.9.1
-	github.com/spf13/viper v1.20.0
+	github.com/spf13/viper v1.20.1
 	golang.org/x/crypto v0.36.0
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3

@@ -28,6 +28,7 @@ const (
 	ProxySSHPort     int   = 6666
 
 	CPURequest              = "10m"
+	CPULimit                = "80m"
 	MemoryRequest           = "50Mi"
 	MemoryLimit             = "100Mi"
 	EphemeralStorageRequest = "1Mi"
@@ -362,6 +363,7 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 			},
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory:           resource.MustParse(MemoryLimit),
+				corev1.ResourceCPU:           	 resource.MustParse(CPULimit),
 				corev1.ResourceEphemeralStorage: resource.MustParse(EphemeralStorageLimit),
 			},
 		},

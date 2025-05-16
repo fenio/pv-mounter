@@ -1,4 +1,6 @@
 name: Conditional Docker Image Builds
+permissions:
+  contents: read
 
 on:
   push:

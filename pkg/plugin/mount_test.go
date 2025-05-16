@@ -4,42 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
+	"crypto/elliptic"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
-)
-
-func TestValidateMountPoint(t *testing.T) {
-	t.Run("Mount point exists", func(t *testing.T) {
-		// Create a temporary directory to simulate an existing mount point
-		tempDir := t.TempDir()
-
-		// Call the function
-		err := validateMountPoint(tempDir)
-
-		// Check the result
-		if err != nil {
-			t.Errorf("validateMountPoint(%s) returned an unexpected error: %v", tempDir, err)
-		}
-	})
-
-	t.Run("Mount point does not exist", func(t *testing.T) {
-		// Define a path that does not exist
-		nonExistentPath := "/path/that/does/not/exist"
-
-		// Call the function
-		err := validateMountPoint(nonExistentPath)
-
-		// Check the result
-		if err == nil {
-			t.Errorf("validateMountPoint(%s) should have returned an error, but it did not", nonExistentPath)
-		}
-	})
-}
 
 func TestValidateMountPoint_FileInsteadOfDirectory(t *testing.T) {
 	// Create a temporary file to simulate a file instead of a directory

@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	ImageVersion = "v0.2.3"
-	//"v0.2.1"
+	ImageVersion = "5f1e11846c"
+
 	Image                  = "bfenski/volume-exposer:" + ImageVersion
 	PrivilegedImage        = "bfenski/volume-exposer-privileged:" + ImageVersion
 	DefaultUserGroup int64 = 2137

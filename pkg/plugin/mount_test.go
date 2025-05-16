@@ -188,4 +188,178 @@ func TestGetPVCVolumeName(t *testing.T) {
 	if volumeName != "test-volume" {
 		t.Errorf("Expected volume name 'test-volume', got '%s'", volumeName)
 	}
+
+	// Test error branch
+	podEmpty := &corev1.Pod{}
+	_, err = getPVCVolumeName(podEmpty)
+	if err == nil {
+		t.Error("Expected error for pod with no PVC volumes")
+	}
+}
+
+// --- Additional tests for improved coverage ---
+
+func TestCheckPVCUsage_Errors(t *testing.T) {
+	clientset := fake.NewSimpleClientset()
+	ctx := context.Background()
+
+	// PVC does not exist
+	_, err := checkPVCUsage(ctx, clientset, "default", "missing-pvc")
+	if err == nil {
+		t.Error("Expected error for missing PVC")
+	}
+
+	// PVC not bound
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "unbound-pvc", Namespace: "default"},
+		Status:     corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimPending},
+	}
+	clientset = fake.NewSimpleClientset(pvc)
+	_, err = checkPVCUsage(ctx, clientset, "default", "unbound-pvc")
+	if err == nil || !strings.Contains(err.Error(), "not bound") {
+		t.Error("Expected not bound error")
+	}
+}
+
+func TestSetupPod_CreateError(t *testing.T) {
+	clientset := fake.NewSimpleClientset()
+	ctx := context.Background()
+	// Simulate error by creating a pod with the same name first
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "volume-exposer-abcde", Namespace: "default"}}
+	clientset.CoreV1().Pods("default").Create(ctx, pod, metav1.CreateOptions{})
+
+	// Use a fixed pod name by patching generatePodNameAndPort for this test
+	origGen := generatePodNameAndPort
+	generatePodNameAndPort = func(role string) (string, int) {
+		return "volume-exposer-abcde", 12345
+	}
+	defer func() { generatePodNameAndPort = origGen }()
+
+	_, _, err := setupPod(ctx, clientset, "default", "pvc", "pubkey", "standalone", 2137, "", false, "", "", "")
+	if err == nil {
+		t.Error("Expected error when pod already exists")
+	}
+}
+
+func TestValidateMountPoint_FileInsteadOfDirectory_Error(t *testing.T) {
+	// Remove file after test
+	tempFile, err := os.CreateTemp("", "testfile")
+	if err != nil {
+		t.Fatalf("Failed to create temporary file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+
+	// Should not error for file (current implementation), but let's check
+	err = validateMountPoint(tempFile.Name())
+	if err != nil {
+		t.Errorf("validateMountPoint(%s) returned an unexpected error: %v", tempFile.Name(), err)
+	}
+}
+
+func TestWaitForPodReady_Error(t *testing.T) {
+	clientset := fake.NewSimpleClientset()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // immediately cancel context to force error
+
+	err := waitForPodReady(ctx, clientset, "default", "nonexistent-pod")
+	if err == nil {
+		t.Error("Expected error due to cancelled context")
+	}
+}
+
+func TestCheckPVAccessMode_Error(t *testing.T) {
+	clientset := fake.NewSimpleClientset()
+	ctx := context.Background()
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "pvc", Namespace: "default"},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			VolumeName: "pv1",
+		},
+	}
+	// No PV exists, should error
+	_, _, err := checkPVAccessMode(ctx, clientset, pvc, "default")
+	if err == nil {
+		t.Error("Expected error when PV does not exist")
+	}
+}
+
+func TestHandleRWX_ErrorBranches(t *testing.T) {
+	// Simulate error in GenerateKeyPair
+	origGen := GenerateKeyPair
+	GenerateKeyPair = func(curve elliptic.Curve) (string, string, error) {
+		return "", "", fmt.Errorf("fail")
+	}
+	defer func() { GenerateKeyPair = origGen }()
+
+	clientset := fake.NewSimpleClientset()
+	ctx := context.Background()
+	err := handleRWX(ctx, clientset, "default", "pvc", "/tmp", false, false, "", "", "")
+	if err == nil || !strings.Contains(err.Error(), "error generating key pair") {
+		t.Error("Expected error from GenerateKeyPair")
+	}
+}
+
+func TestHandleRWO_ErrorBranches(t *testing.T) {
+	// Simulate error in GenerateKeyPair
+	origGen := GenerateKeyPair
+	GenerateKeyPair = func(curve elliptic.Curve) (string, string, error) {
+		return "", "", fmt.Errorf("fail")
+	}
+	defer func() { GenerateKeyPair = origGen }()
+
+	clientset := fake.NewSimpleClientset()
+	ctx := context.Background()
+	err := handleRWO(ctx, clientset, "default", "pvc", "/tmp", "pod", false, false, "", "", "")
+	if err == nil || !strings.Contains(err.Error(), "error generating key pair") {
+		t.Error("Expected error from GenerateKeyPair")
+	}
+}
+
+func TestMountPVCOverSSH_Error(t *testing.T) {
+	// Save and restore execCommand
+	origLookPath := exec.LookPath
+	origCommand := exec.Command
+	defer func() {
+		exec.LookPath = origLookPath
+		exec.Command = origCommand
+	}()
+
+	// Simulate sshfs not found
+	exec.LookPath = func(file string) (string, error) {
+		return "", fmt.Errorf("not found")
+	}
+	err := mountPVCOverSSH(2222, "/tmp", "pvc", "key", false)
+	if err == nil {
+		t.Error("Expected error when sshfs is not found")
+	}
+
+	// Simulate sshfs command fails
+	exec.LookPath = origLookPath
+	exec.Command = func(name string, arg ...string) *exec.Cmd {
+		return exec.Command("false") // always fails
+	}
+	err = mountPVCOverSSH(2222, "/tmp", "pvc", "key", false)
+	if err == nil {
+		t.Error("Expected error when sshfs command fails")
+	}
+}
+
+func TestCreateEphemeralContainer_ErrorBranches(t *testing.T) {
+	clientset := fake.NewSimpleClientset()
+	ctx := context.Background()
+	// Pod does not exist
+	err := createEphemeralContainer(ctx, clientset, "default", "missing-pod", "priv", "pub", "ip", false, "")
+	if err == nil {
+		t.Error("Expected error when pod does not exist")
+	}
+
+	// Pod exists but no PVC volume
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "pod", Namespace: "default"},
+	}
+	clientset = fake.NewSimpleClientset(pod)
+	err = createEphemeralContainer(ctx, clientset, "default", "pod", "priv", "pub", "ip", false, "")
+	if err == nil {
+		t.Error("Expected error when no PVC volume")
+	}
 }

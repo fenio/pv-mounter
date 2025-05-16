@@ -1,0 +1,91 @@
+name: Conditional Docker Image Builds
+
+on:
+  push:
+    paths:
+      - 'docker/**'
+  workflow_dispatch:
+
+jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      build-standard: ${{ steps.filter.outputs.standard }}
+      build-privileged: ${{ steps.filter.outputs.privileged }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine if builds are needed
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            standard:
+              - 'docker/Dockerfile'
+              - 'docker/sshd_config.standard'
+              - 'docker/entrypoint.sh'
+              - 'docker/sshkey.sh'
+            privileged:
+              - 'docker/Dockerfile.privileged'
+              - 'docker/sshd_config.privileged'
+              - 'docker/entrypoint.sh'
+              - 'docker/sshkey.sh'
+
+  build-standard:
+    needs: filter
+    if: needs.filter.outputs.build-standard == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::10}" >> $GITHUB_ENV
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: bfenski
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Build and push volume-exposer
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker
+          file: ./docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            bfenski/volume-exposer:latest
+            bfenski/volume-exposer:${{ env.SHORT_SHA }}
+
+  build-privileged:
+    needs: filter
+    if: needs.filter.outputs.build-privileged == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::10}" >> $GITHUB_ENV
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: bfenski
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Build and push volume-exposer-privileged
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker
+          file: ./docker/Dockerfile.privileged
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            bfenski/volume-exposer-privileged:latest
+            bfenski/volume-exposer-privileged:${{ env.SHORT_SHA }}
+

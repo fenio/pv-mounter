@@ -1,4 +1,4 @@
-FROM debian:stable-slim@sha256:5484adc33b4c352c5a9f4c4ae295fc49aed1cb54a7a0712a1b29674fb6f4f10f
+FROM debian:stable-slim
 
 # Update package list and install necessary packages
 RUN apt-get update && \

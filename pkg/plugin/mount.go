@@ -36,7 +36,7 @@ const (
 
 var DefaultID int64 = 2137
 
-func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret string) error {
+func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
 	checkSSHFS()
 	if err := validateMountPoint(localMountPoint); err != nil {
 		return err
@@ -54,9 +54,9 @@ func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, need
 		return err
 	}
 	if canBeMounted {
-		return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret)
+		return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret, cpuLimit)
 	}
-	return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, needsRoot, debug, image, imageSecret)
+	return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, needsRoot, debug, image, imageSecret, cpuLimit)
 }
 
 func validateMountPoint(localMountPoint string) error {
@@ -66,7 +66,7 @@ func validateMountPoint(localMountPoint string) error {
 	return nil
 }
 
-func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret string) error {
+func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
 	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
 	if err != nil {
 		return fmt.Errorf("error generating key pair: %v", err)
@@ -74,7 +74,7 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 	if debug {
 		fmt.Printf("Private Key:\n%s\n", privateKey)
 	}
-	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "", needsRoot, image, imageSecret)
+	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "", needsRoot, image, imageSecret, cpuLimit)
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 	return mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
-func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret string) error {
+func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
 	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
 	if err != nil {
 		return fmt.Errorf("error generating key pair: %v", err)
@@ -95,7 +95,7 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 	if debug {
 		fmt.Printf("Private Key:\n%s\n", privateKey)
 	}
-	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC, needsRoot, image, imageSecret)
+	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC, needsRoot, image, imageSecret, cpuLimit)
 	if err != nil {
 		return err
 	}
@@ -223,9 +223,9 @@ func checkPVCUsage(ctx context.Context, clientset *kubernetes.Clientset, namespa
 	return pvc, nil
 }
 
-func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret string) (string, int, error) {
+func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) (string, int, error) {
 	podName, port := generatePodNameAndPort(role)
-	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot, image, imageSecret)
+	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot, image, imageSecret, cpuLimit)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %v", err)
 	}
@@ -317,7 +317,7 @@ func generatePodNameAndPort(role string) (string, int) {
 	return podName, port
 }
 
-func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret string) *corev1.Pod {
+func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) *corev1.Pod {
 	envVars := []corev1.EnvVar{
 		{Name: "SSH_PUBLIC_KEY", Value: publicKey},
 		{Name: "SSH_PORT", Value: fmt.Sprintf("%d", sshPort)},
@@ -365,6 +365,9 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 				corev1.ResourceEphemeralStorage: resource.MustParse(EphemeralStorageLimit),
 			},
 		},
+	}
+	if cpuLimit != "" {
+		container.Resources.Limits[corev1.ResourceCPU] = resource.MustParse(cpuLimit)
 	}
 	labels := map[string]string{
 		"app":        "volume-exposer",

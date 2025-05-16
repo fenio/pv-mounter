@@ -151,11 +151,19 @@ func TestGeneratePodNameAndPort(t *testing.T) {
 }
 
 func TestCreatePodSpec(t *testing.T) {
-	podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", false, "whatever", "secret")
+	podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", false, "whatever", "secret", "")
 	if podSpec.Name != "test-pod" {
 		t.Errorf("Expected pod name 'test-pod', got '%s'", podSpec.Name)
 	}
 	// Additional checks for volumes, containers, etc.
+
+	// Test cpuLimit propagation
+	cpuLimit := "250m"
+	podSpecWithLimit := createPodSpec("test-pod2", 23456, "test-pvc2", "publicKey2", "standalone", 22, "", false, "whatever", "secret", cpuLimit)
+	limit := podSpecWithLimit.Spec.Containers[0].Resources.Limits
+	if limit == nil || limit.Cpu().String() != cpuLimit {
+		t.Errorf("Expected CPU limit '%s', got '%s'", cpuLimit, limit.Cpu().String())
+	}
 }
 
 func TestGetPVCVolumeName(t *testing.T) {

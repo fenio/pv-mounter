@@ -9,7 +9,19 @@ kubectl krew install pv-mounter
 ### Mount PVC to local directory
 
 ```shell
-kubectl pv-mounter mount some-ns some-pvc some-mountpoint 
+kubectl pv-mounter mount some-ns some-pvc some-mountpoint
+```
+
+You can optionally set a CPU limit for the helper pod:
+
+```shell
+kubectl pv-mounter mount --cpu-limit 200m some-ns some-pvc some-mountpoint
+```
+
+Or use the environment variable:
+
+```shell
+CPU_LIMIT=200m kubectl pv-mounter mount some-ns some-pvc some-mountpoint
 ```
 
 ### Unmount / clean stuff
@@ -17,6 +29,14 @@ kubectl pv-mounter mount some-ns some-pvc some-mountpoint
 ```shell
 kubectl pv-mounter clean some-ns some-pvc some-mountpoint
 ```
+
+#### Flags and Environment Variables
+
+- `--cpu-limit` (or `CPU_LIMIT`): Set CPU limit for the helper pod (e.g., `200m`).
+- `--needs-root` (or `NEEDS_ROOT`): Mount with root privileges.
+- `--debug` (or `DEBUG`): Enable debug mode.
+- `--image` (or `IMAGE`): Custom container image.
+- `--image-secret` (or `IMAGE_SECRET`): Secret for private registry.
 
 ## How it works
 

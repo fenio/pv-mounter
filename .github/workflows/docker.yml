@@ -15,7 +15,7 @@ jobs:
       build-standard: ${{ steps.filter.outputs.standard }}
       build-privileged: ${{ steps.filter.outputs.privileged }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
 
       - name: Determine if builds are needed
         id: filter
@@ -38,7 +38,7 @@ jobs:
     if: needs.filter.outputs.build-standard == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
 
       - name: Extract short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::10}" >> $GITHUB_ENV
@@ -67,7 +67,7 @@ jobs:
     if: needs.filter.outputs.build-privileged == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
 
       - name: Extract short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::10}" >> $GITHUB_ENV

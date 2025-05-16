@@ -15,6 +15,7 @@ func mountCmd() *cobra.Command {
 	var debug bool
 	var image string
 	var imageSecret string
+	var cpuLimit string
 
 	cmd := &cobra.Command{
 		Use:   "mount [flags] <namespace> <pvc-name> <local-mount-point>",
@@ -49,10 +50,14 @@ to mount the specified PVC locally.`,
 				imageSecret = env
 			}
 
+			if env, exists := os.LookupEnv("CPU_LIMIT"); exists && cpuLimit == "" {
+				cpuLimit = env
+			}
+
 			namespace, pvcName, localMountPoint := args[0], args[1], args[2]
 			ctx := context.Background()
 
-			return plugin.Mount(ctx, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret)
+			return plugin.Mount(ctx, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret, cpuLimit)
 		},
 	}
 
@@ -60,6 +65,7 @@ to mount the specified PVC locally.`,
 	cmd.Flags().BoolVar(&debug, "debug", false, "Enable debug mode to print additional information (default: false)")
 	cmd.Flags().StringVar(&image, "image", "", "Custom container image for the volume-exposer (optional)")
 	cmd.Flags().StringVar(&imageSecret, "image-secret", "", "Kubernetes secret name for accessing private registry (optional)")
+	cmd.Flags().StringVar(&cpuLimit, "cpu-limit", "", "Set CPU limit for the volume-exposer container (optional)")
 
 	cmd.SetUsageTemplate(`
 Usage:
@@ -85,6 +91,7 @@ Environment Variables:
   DEBUG            Set to 'true' to enable debug mode by default
   IMAGE            Specify default custom container image
   IMAGE_SECRET     Specify default Kubernetes secret for private registry access
+  CPU_LIMIT        Specify default CPU limit for the container (e.g., 200m)
 `)
 
 	return cmd

@@ -12,12 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	k8stesting "k8s.io/client-go/testing"
 
-func TestValidateMountPoint_FileInsteadOfDirectory(t *testing.T) {
-	// Create a temporary file to simulate a file instead of a directory
-	tempFile, err := os.CreateTemp("", "testfile")
-	if err != nil {
 		t.Fatalf("Failed to create temporary file: %v", err)
 	}
 	defer os.Remove(tempFile.Name())

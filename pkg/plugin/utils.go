@@ -40,6 +40,9 @@ func BuildKubeClient() (*kubernetes.Clientset, error) {
 }
 
 func randSeq(n int) string {
+	if n <= 0 {
+		return ""
+	}
 	letters := []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 	b := make([]rune, n)
 	for i := range b {
@@ -49,6 +52,9 @@ func randSeq(n int) string {
 }
 
 func GenerateKeyPair(curve elliptic.Curve) (string, string, error) {
+	if curve == nil {
+		return "", "", fmt.Errorf("curve must not be nil")
+	}
 	// Generate a new private key
 	privateKey, err := ecdsa.GenerateKey(curve, crand.Reader)
 	if err != nil {

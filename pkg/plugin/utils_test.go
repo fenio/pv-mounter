@@ -31,3 +31,24 @@ func TestGenerateKeyPair(t *testing.T) {
 	}
 	// Additional checks can be added to validate the key formats
 }
+
+func TestGenerateKeyPair_InvalidCurve(t *testing.T) {
+	// Pass nil as the curve, which should cause GenerateKeyPair to fail
+	privateKey, publicKey, err := GenerateKeyPair(nil)
+	if err == nil {
+		t.Error("Expected error when passing nil curve, got nil")
+	}
+	if privateKey != "" || publicKey != "" {
+		t.Error("Expected empty keys when error occurs")
+	}
+}
+
+func TestRandSeq_ZeroAndNegativeLength(t *testing.T) {
+	if seq := randSeq(0); seq != "" {
+		t.Errorf("Expected empty string for zero length, got %q", seq)
+	}
+	// Negative length is not possible for int, but let's check behavior for -1 cast to uint
+	if seq := randSeq(int(-1)); seq != "" {
+		t.Errorf("Expected empty string for negative length, got %q", seq)
+	}
+}

@@ -9,14 +9,15 @@ import (
 	"crypto/elliptic"
 
 	"fmt"
-	"golang.org/x/crypto/ssh"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"math/rand"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"golang.org/x/crypto/ssh"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func BuildKubeClient() (*kubernetes.Clientset, error) {

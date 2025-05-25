@@ -41,7 +41,7 @@ func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, need
 	if err := validateMountPoint(localMountPoint); err != nil {
 		return err
 	}
-	clientset, err := BuildKubeClient()
+	clientset, err := BuildKubeClient() // This returns *kubernetes.Clientset, but we'll use kubernetes.Interface where possible
 	if err != nil {
 		return err
 	}
@@ -49,11 +49,14 @@ func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, need
 	if err != nil {
 		return err
 	}
-	canBeMounted, podUsingPVC, err := checkPVAccessMode(ctx, clientset, pvc, namespace)
+	// Assuming BuildKubeClient provides a concrete type that implements kubernetes.Interface
+	var iClient kubernetes.Interface = clientset 
+	canBeMounted, podUsingPVC, err := checkPVAccessMode(ctx, iClient, pvc, namespace)
 	if err != nil {
 		return err
 	}
 	if canBeMounted {
+		// Pass concrete type if original func expects it, or interface if it's updated
 		return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret, cpuLimit)
 	}
 	return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, needsRoot, debug, image, imageSecret, cpuLimit)
@@ -66,7 +69,8 @@ func validateMountPoint(localMountPoint string) error {
 	return nil
 }
 
-func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
+// Changed clientset to kubernetes.Interface
+func handleRWX(ctx context.Context, clientset kubernetes.Interface, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
 	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
 	if err != nil {
 		return fmt.Errorf("error generating key pair: %v", err)
@@ -87,7 +91,8 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 	return mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
-func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
+// Changed clientset to kubernetes.Interface
+func handleRWO(ctx context.Context, clientset kubernetes.Interface, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
 	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
 	if err != nil {
 		return fmt.Errorf("error generating key pair: %v", err)
@@ -115,7 +120,8 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 	return mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
-func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error {
+// Changed clientset to kubernetes.Interface - THIS IS THE KEY CHANGE
+func createEphemeralContainer(ctx context.Context, clientset kubernetes.Interface, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error {
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get existing pod: %v", err)
@@ -180,7 +186,7 @@ func getPodIP(ctx context.Context, clientset kubernetes.Interface, namespace, po
 	return pod.Status.PodIP, nil
 }
 
-func checkPVAccessMode(ctx context.Context, clientset *kubernetes.Clientset, pvc *corev1.PersistentVolumeClaim, namespace string) (bool, string, error) {
+func checkPVAccessMode(ctx context.Context, clientset kubernetes.Interface, pvc *corev1.PersistentVolumeClaim, namespace string) (bool, string, error) {
 	pvName := pvc.Spec.VolumeName
 	pv, err := clientset.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
 	if err != nil {
@@ -212,7 +218,7 @@ func contains(modes []corev1.PersistentVolumeAccessMode, modeToFind corev1.Persi
 	return false
 }
 
-func checkPVCUsage(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
+func checkPVCUsage(ctx context.Context, clientset kubernetes.Interface, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
 	pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, pvcName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PVC: %v", err)
@@ -223,7 +229,8 @@ func checkPVCUsage(ctx context.Context, clientset *kubernetes.Clientset, namespa
 	return pvc, nil
 }
 
-func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) (string, int, error) {
+// Changed clientset to kubernetes.Interface
+func setupPod(ctx context.Context, clientset kubernetes.Interface, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) (string, int, error) {
 	podName, port := generatePodNameAndPort(role)
 	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot, image, imageSecret, cpuLimit)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
@@ -233,7 +240,8 @@ func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, p
 	return podName, port, nil
 }
 
-func waitForPodReady(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string) error {
+// Changed clientset to kubernetes.Interface
+func waitForPodReady(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) error {
 	return wait.PollUntilContextTimeout(ctx, time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
@@ -255,7 +263,7 @@ func setupPortForwarding(namespace, podName string, port int) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start port-forward: %v", err)
 	}
-	time.Sleep(5 * time.Second) // Wait a bit for the port forwarding to establish
+	time.Sleep(5 * time.Second) 
 	return nil
 }
 
@@ -263,8 +271,6 @@ func mountPVCOverSSH(
 	port int,
 	localMountPoint, pvcName, privateKey string,
 	needsRoot bool) error {
-
-	// Create a temporary file to store the private key
 	tmpFile, err := os.CreateTemp("", "ssh_key_*.pem")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file for SSH private key: %v", err)
@@ -313,7 +319,7 @@ func generatePodNameAndPort(role string) (string, int) {
 		baseName = "volume-exposer-proxy"
 	}
 	podName := fmt.Sprintf("%s-%s", baseName, suffix)
-	port := r.Intn(64511) + 1024 // Use the local random generator
+	port := r.Intn(64511) + 1024
 	return podName, port
 }
 
@@ -427,14 +433,10 @@ func getPVCVolumeName(pod *corev1.Pod) (string, error) {
 func getEphemeralContainerSettings(needsRoot bool) (string, *corev1.SecurityContext) {
 	image := Image
 	var securityContext *corev1.SecurityContext
-
-	// Define boolean pointers inline
 	allowPrivilegeEscalationTrue := true
 	allowPrivilegeEscalationFalse := false
 	readOnlyRootFilesystemTrue := true
 	runAsNonRootTrue := true
-
-	// Define seccomp profile type
 	seccompProfileRuntimeDefault := corev1.SeccompProfile{
 		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}

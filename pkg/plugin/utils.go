@@ -20,6 +20,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+var execLookPath = exec.LookPath // For mocking in tests
+
 func BuildKubeClient() (*kubernetes.Clientset, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
@@ -91,7 +93,7 @@ func GenerateKeyPair(curve elliptic.Curve) (string, string, error) {
 }
 
 func checkSSHFS() {
-	_, err := exec.LookPath("sshfs")
+	_, err := execLookPath("sshfs") // Use the mockable variable
 	if err != nil {
 		fmt.Println("sshfs is not available in your environment.")
 		if runtime.GOOS == "darwin" {

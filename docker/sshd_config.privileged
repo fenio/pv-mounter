@@ -1,5 +1,5 @@
 # /etc/ssh/sshd_config
-PermitRootLogin prohibit-password 
+PermitRootLogin prohibit-password
 PasswordAuthentication no
 ChallengeResponseAuthentication no
 AuthorizedKeysFile none

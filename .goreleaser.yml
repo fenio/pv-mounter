@@ -22,4 +22,3 @@ archives:
     ids:
     - pv-mounter
     name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
-

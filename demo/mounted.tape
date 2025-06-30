@@ -47,4 +47,3 @@ Enter
 Wait
 Sleep 5s
 Ctrl+D
-

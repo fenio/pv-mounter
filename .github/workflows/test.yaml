@@ -45,7 +45,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          go test -v -coverprofile=coverage.out ./... 
+          go test -v -coverprofile=coverage.out ./...
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
@@ -65,7 +65,7 @@ jobs:
 
       - name: Install SSHFS
         uses: awalsh128/cache-apt-pkgs-action@7ca5f46d061ad9aa95863cd9b214dd48edef361d # v1.5.0
-        with: 
+        with:
           packages: sshfs openssh-client libfuse3-3
           version: ${{ runner.arch }}-1.0
 
@@ -75,9 +75,9 @@ jobs:
       - name: Create mountpoint
         run: mkdir foo
 
-      - name: Check state of test objects 
+      - name: Check state of test objects
         run: |
-          kubectl get pod 
+          kubectl get pod
           kubectl get pvc
           kubectl get storageclass
 
@@ -99,7 +99,7 @@ jobs:
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-2 foo
 
-      - name: '[TEST] Mounted PVC with RWO access mode' 
+      - name: '[TEST] Mounted PVC with RWO access mode'
         run: |
           ./bin/pv-mounter mount --needs-root default pvc-3 foo
           touch foo/bar
@@ -129,5 +129,3 @@ jobs:
 
       - name: Delete PODs and PVCs
         run: kubectl delete -f test --force --grace-period=0
-
-

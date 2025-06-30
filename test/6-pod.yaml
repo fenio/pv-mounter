@@ -14,4 +14,3 @@ spec:
   - name: test-volume
     persistentVolumeClaim:
       claimName: pvc-6
-

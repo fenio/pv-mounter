@@ -105,4 +105,3 @@ jobs:
           tags: |
             bfenski/volume-exposer-privileged:latest
             bfenski/volume-exposer-privileged:${{ env.SHORT_SHA }}
-

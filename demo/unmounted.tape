@@ -46,4 +46,3 @@ Type "ls foo"
 Enter
 Sleep 5s
 Ctrl+D
-

@@ -1,0 +1,15 @@
+on:
+  issues:
+    types: [opened, reopened]
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    name: Close issue opened by non-stargazer
+    steps:    
+      - name: close
+        uses: uhyo/please-star-first@v2
+        with:
+          message: |
+            Sorry but I'm not going to waste my personal time on fixing issues for people that don't even want to support this project by starring it.
+          close_reason: not_planned

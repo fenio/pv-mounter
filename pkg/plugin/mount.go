@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	ImageVersion = "b81f21036a"
+	ImageVersion = "19fa80ac90"
 
 	Image                  = "bfenski/volume-exposer:" + ImageVersion
 	PrivilegedImage        = "bfenski/volume-exposer-privileged:" + ImageVersion

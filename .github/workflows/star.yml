@@ -2,11 +2,15 @@ on:
   issues:
     types: [opened, reopened]
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   greet:
     runs-on: ubuntu-latest
     name: Close issue opened by non-stargazer
-    steps:    
+    steps:
       - name: close
         uses: uhyo/please-star-first@v2
         with:

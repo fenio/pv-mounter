@@ -1,7 +1,8 @@
 FROM debian:stable-slim@sha256:377ddc2a20fe8632a49b69dcfff10fccbd5b4f0b8c2d593420a6a5e03070dfa1
 
 # Update package list and install necessary packages
-RUN apt-get update && \
+RUN DEBIAN_FRONTEND=noninteractive; \
+    apt-get update && \
     apt-get install -y --no-install-recommends openssh-server openssh-client && \
     apt-get clean && \
     apt-get autoremove -y && \

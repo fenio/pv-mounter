@@ -8,7 +8,7 @@ RUN apt-get update && \
     rm -f /usr/bin/ssh-keyscan && \
     rm -f /usr/bin/ssh-keygen && \
     rm -rf /var/lib/apt/lists/* && \
-    mkdir /var/run/sshd /volume
+    mkdir /volume
 
 # Copy scripts and configuration files
 COPY entrypoint.sh /entrypoint.sh

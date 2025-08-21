@@ -1,7 +1,7 @@
 FROM debian:stable-slim@sha256:8810492a2dd16b7f59239c1e0cc1e56c1a1a5957d11f639776bd6798e795608b
 
 # Update package list and install necessary packages
-RUN DEBIAN_FRONTEND=noninteractive; \
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections \
     apt-get update && \
     apt-get install -y --no-install-recommends openssh-server openssh-client && \
     apt-get clean && \

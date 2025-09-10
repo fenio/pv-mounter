@@ -1,6 +1,6 @@
 module github.com/fenio/pv-mounter
 
-go 1.25.0
+go 1.25.1
 
 require (
 	github.com/spf13/cobra v1.10.1
@@ -53,7 +53,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.43.0 // indirect

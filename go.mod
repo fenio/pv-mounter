@@ -1,6 +1,6 @@
 module github.com/fenio/pv-mounter
 
-go 1.25.1
+go 1.25.2
 
 require (
 	github.com/spf13/cobra v1.10.1

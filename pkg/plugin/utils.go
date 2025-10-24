@@ -14,16 +14,11 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 func BuildKubeClient() (*kubernetes.Clientset, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")

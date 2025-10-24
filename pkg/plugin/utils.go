@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -109,4 +110,18 @@ func checkSSHFS() {
 		}
 		os.Exit(1)
 	}
+}
+
+func ValidateKubernetesName(name, fieldName string) error {
+	if name == "" {
+		return fmt.Errorf("%s cannot be empty", fieldName)
+	}
+	if len(name) > 253 {
+		return fmt.Errorf("%s must be no more than 253 characters", fieldName)
+	}
+	validNameRegex := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	if !validNameRegex.MatchString(name) {
+		return fmt.Errorf("%s must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character", fieldName)
+	}
+	return nil
 }

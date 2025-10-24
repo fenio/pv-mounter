@@ -38,6 +38,12 @@ var DefaultID int64 = 2137
 
 func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
 	checkSSHFS()
+	if err := ValidateKubernetesName(namespace, "namespace"); err != nil {
+		return err
+	}
+	if err := ValidateKubernetesName(pvcName, "pvc-name"); err != nil {
+		return err
+	}
 	if err := validateMountPoint(localMountPoint); err != nil {
 		return err
 	}
@@ -280,12 +286,15 @@ func mountPVCOverSSH(
 	localMountPoint, pvcName, privateKey string,
 	needsRoot bool) error {
 
-	// Create a temporary file to store the private key
 	tmpFile, err := os.CreateTemp("", "ssh_key_*.pem")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file for SSH private key: %v", err)
 	}
 	defer os.Remove(tmpFile.Name())
+
+	if err := os.Chmod(tmpFile.Name(), 0600); err != nil {
+		return fmt.Errorf("failed to set permissions on temporary SSH key file: %v", err)
+	}
 
 	if _, err := tmpFile.Write([]byte(privateKey)); err != nil {
 		return fmt.Errorf("failed to write SSH private key to temporary file: %v", err)

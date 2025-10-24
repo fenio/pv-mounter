@@ -12,7 +12,13 @@ import (
 )
 
 func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) error {
-	// Unmount the local mount point
+	if err := ValidateKubernetesName(namespace, "namespace"); err != nil {
+		return err
+	}
+	if err := ValidateKubernetesName(pvcName, "pvc-name"); err != nil {
+		return err
+	}
+
 	var umountCmd *exec.Cmd
 	if runtime.GOOS == "darwin" {
 		umountCmd = exec.Command("umount", localMountPoint)

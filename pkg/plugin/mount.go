@@ -113,21 +113,35 @@ func validateMountPoint(localMountPoint string) error {
 	return nil
 }
 
-func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
-	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
+type mountConfig struct {
+	role            string
+	sshPort         int
+	originalPodName string
+}
+
+func generateAndDebugKeys(debug bool) (privateKey, publicKey string, err error) {
+	privateKey, publicKey, err = GenerateKeyPair(elliptic.P256())
 	if err != nil {
-		return fmt.Errorf("error generating key pair: %v", err)
+		return "", "", fmt.Errorf("error generating key pair: %v", err)
 	}
 	if debug {
 		fmt.Printf("Private Key:\n%s\n", privateKey)
 	}
-	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "standalone", DefaultSSHPort, "", needsRoot, image, imageSecret, cpuLimit)
+	return privateKey, publicKey, nil
+}
+
+func setupPodAndWait(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey string, config mountConfig, needsRoot bool, image, imageSecret, cpuLimit string) (podName string, port int, err error) {
+	podName, port, err = setupPod(ctx, clientset, namespace, pvcName, publicKey, config.role, config.sshPort, config.originalPodName, needsRoot, image, imageSecret, cpuLimit)
 	if err != nil {
-		return err
+		return "", 0, err
 	}
 	if err := waitForPodReady(ctx, clientset, namespace, podName); err != nil {
-		return err
+		return "", 0, err
 	}
+	return podName, port, nil
+}
+
+func setupPortForwardAndMount(namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot bool) error {
 	pfCmd, err := setupPortForwarding(namespace, podName, port)
 	if err != nil {
 		return err
@@ -139,37 +153,53 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 	return nil
 }
 
+func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
+	privateKey, publicKey, err := generateAndDebugKeys(debug)
+	if err != nil {
+		return err
+	}
+
+	config := mountConfig{
+		role:            "standalone",
+		sshPort:         DefaultSSHPort,
+		originalPodName: "",
+	}
+
+	podName, port, err := setupPodAndWait(ctx, clientset, namespace, pvcName, publicKey, config, needsRoot, image, imageSecret, cpuLimit)
+	if err != nil {
+		return err
+	}
+
+	return setupPortForwardAndMount(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
+}
+
 func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
-	privateKey, publicKey, err := GenerateKeyPair(elliptic.P256())
-	if err != nil {
-		return fmt.Errorf("error generating key pair: %v", err)
-	}
-	if debug {
-		fmt.Printf("Private Key:\n%s\n", privateKey)
-	}
-	podName, port, err := setupPod(ctx, clientset, namespace, pvcName, publicKey, "proxy", ProxySSHPort, podUsingPVC, needsRoot, image, imageSecret, cpuLimit)
+	privateKey, publicKey, err := generateAndDebugKeys(debug)
 	if err != nil {
 		return err
 	}
-	if err := waitForPodReady(ctx, clientset, namespace, podName); err != nil {
+
+	config := mountConfig{
+		role:            "proxy",
+		sshPort:         ProxySSHPort,
+		originalPodName: podUsingPVC,
+	}
+
+	podName, port, err := setupPodAndWait(ctx, clientset, namespace, pvcName, publicKey, config, needsRoot, image, imageSecret, cpuLimit)
+	if err != nil {
 		return err
 	}
+
 	proxyPodIP, err := getPodIP(ctx, clientset, namespace, podName)
 	if err != nil {
 		return err
 	}
+
 	if err := createEphemeralContainer(ctx, clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP, needsRoot, image); err != nil {
 		return err
 	}
-	pfCmd, err := setupPortForwarding(namespace, podName, port)
-	if err != nil {
-		return err
-	}
-	if err := mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot); err != nil {
-		cleanupPortForward(pfCmd)
-		return err
-	}
-	return nil
+
+	return setupPortForwardAndMount(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
 func cleanupPortForward(cmd *exec.Cmd) {

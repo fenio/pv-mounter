@@ -181,3 +181,82 @@ func TestGetPVCVolumeName(t *testing.T) {
 		t.Errorf("Expected volume name 'test-volume', got '%s'", volumeName)
 	}
 }
+
+func TestGetPVCVolumeName_NoPVC(t *testing.T) {
+	pod := &corev1.Pod{
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{
+					Name: "test-volume",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+		},
+	}
+	_, err := getPVCVolumeName(pod)
+	if err == nil {
+		t.Error("Expected error when no PVC volume exists")
+	}
+}
+
+func TestCheckPVCUsage(t *testing.T) {
+	namespace := "default"
+	pvcName := "test-pvc"
+
+	t.Run("PVC exists and is bound", func(t *testing.T) {
+		clientset := fake.NewSimpleClientset(&corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pvcName,
+				Namespace: namespace,
+			},
+			Status: corev1.PersistentVolumeClaimStatus{
+				Phase: corev1.ClaimBound,
+			},
+		})
+
+		ctx := context.Background()
+		pvc, err := checkPVCUsage(ctx, clientset, namespace, pvcName)
+		if err != nil {
+			t.Errorf("checkPVCUsage returned an error: %v", err)
+		}
+		if pvc.Name != pvcName {
+			t.Errorf("Expected PVC name '%s', got '%s'", pvcName, pvc.Name)
+		}
+	})
+
+	t.Run("PVC not bound", func(t *testing.T) {
+		clientset := fake.NewSimpleClientset(&corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pvcName,
+				Namespace: namespace,
+			},
+			Status: corev1.PersistentVolumeClaimStatus{
+				Phase: corev1.ClaimPending,
+			},
+		})
+
+		ctx := context.Background()
+		_, err := checkPVCUsage(ctx, clientset, namespace, pvcName)
+		if err == nil {
+			t.Error("Expected error when PVC is not bound")
+		}
+	})
+
+	t.Run("PVC does not exist", func(t *testing.T) {
+		clientset := fake.NewSimpleClientset()
+
+		ctx := context.Background()
+		_, err := checkPVCUsage(ctx, clientset, namespace, pvcName)
+		if err == nil {
+			t.Error("Expected error when PVC does not exist")
+		}
+	})
+}
+
+func TestCleanupPortForward(t *testing.T) {
+	t.Run("Nil command", func(t *testing.T) {
+		cleanupPortForward(nil)
+	})
+}

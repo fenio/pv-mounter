@@ -77,7 +77,7 @@ func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) erro
 	return nil
 }
 
-func killProcessInEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string) error {
+func killProcessInEphemeralContainer(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) error {
 	// Retrieve the existing pod to get the ephemeral container name
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {

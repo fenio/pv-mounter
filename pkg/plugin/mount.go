@@ -86,9 +86,7 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 	if err := mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot); err != nil {
-		if pfCmd != nil && pfCmd.Process != nil {
-			pfCmd.Process.Kill()
-		}
+		cleanupPortForward(pfCmd)
 		return err
 	}
 	return nil
@@ -121,12 +119,16 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 	if err := mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot); err != nil {
-		if pfCmd != nil && pfCmd.Process != nil {
-			pfCmd.Process.Kill()
-		}
+		cleanupPortForward(pfCmd)
 		return err
 	}
 	return nil
+}
+
+func cleanupPortForward(cmd *exec.Cmd) {
+	if cmd != nil && cmd.Process != nil {
+		cmd.Process.Kill()
+	}
 }
 
 func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error {
@@ -226,7 +228,7 @@ func contains(modes []corev1.PersistentVolumeAccessMode, modeToFind corev1.Persi
 	return false
 }
 
-func checkPVCUsage(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
+func checkPVCUsage(ctx context.Context, clientset kubernetes.Interface, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
 	pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, pvcName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PVC: %v", err)
@@ -320,14 +322,13 @@ func mountPVCOverSSH(
 }
 
 func generatePodNameAndPort(role string) (string, int) {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	suffix := randSeq(5)
 	baseName := "volume-exposer"
 	if role == "proxy" {
 		baseName = "volume-exposer-proxy"
 	}
 	podName := fmt.Sprintf("%s-%s", baseName, suffix)
-	port := r.Intn(64511) + 1024 // Use the local random generator
+	port := rand.Intn(64511) + 1024
 	return podName, port
 }
 

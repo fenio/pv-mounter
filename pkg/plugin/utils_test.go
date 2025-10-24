@@ -82,6 +82,16 @@ func TestGenerateKeyPair_DifferentCurves(t *testing.T) {
 	}
 }
 
+func TestGenerateKeyPair_NilCurve(t *testing.T) {
+	_, _, err := GenerateKeyPair(nil)
+	if err == nil {
+		t.Error("Expected error when curve is nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "curve must not be nil") {
+		t.Errorf("Expected 'curve must not be nil' error, got: %v", err)
+	}
+}
+
 func TestRandSeq_Uniqueness(t *testing.T) {
 	length := 10
 	iterations := 100

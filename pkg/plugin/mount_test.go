@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -258,6 +259,21 @@ func TestCheckPVCUsage(t *testing.T) {
 func TestCleanupPortForward(t *testing.T) {
 	t.Run("Nil command", func(t *testing.T) {
 		cleanupPortForward(nil)
+	})
+
+	t.Run("Command with process", func(t *testing.T) {
+		cmd := exec.Command("sleep", "10")
+		cmd.Start()
+		if cmd.Process == nil {
+			t.Fatal("Expected process to be started")
+		}
+		cleanupPortForward(cmd)
+		cmd.Wait()
+	})
+
+	t.Run("Command without process", func(t *testing.T) {
+		cmd := &exec.Cmd{}
+		cleanupPortForward(cmd)
 	})
 }
 

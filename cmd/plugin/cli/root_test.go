@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"testing"
 )
 
@@ -13,6 +14,10 @@ func TestRootCmd(t *testing.T) {
 
 	if cmd.Short == "" {
 		t.Error("Expected Short description to be set")
+	}
+
+	if cmd.Long == "" {
+		t.Error("Expected Long description to be set")
 	}
 
 	t.Run("Has mount subcommand", func(t *testing.T) {
@@ -40,6 +45,52 @@ func TestRootCmd(t *testing.T) {
 		}
 		if !found {
 			t.Error("Expected clean subcommand to be registered")
+		}
+	})
+
+	t.Run("RootCmd singleton", func(t *testing.T) {
+		cmd1 := RootCmd()
+		cmd2 := RootCmd()
+		if cmd1 != cmd2 {
+			t.Error("Expected RootCmd to return the same instance")
+		}
+	})
+}
+
+func TestRootCmdAnnotations(t *testing.T) {
+	t.Run("Kubectl plugin annotation", func(t *testing.T) {
+		originalArgs := os.Args
+		os.Args = []string{"kubectl-pv-mounter"}
+		rootCmd = nil
+		defer func() {
+			os.Args = originalArgs
+			rootCmd = nil
+		}()
+
+		cmd := RootCmd()
+		if cmd.Annotations != nil {
+			if displayName, exists := cmd.Annotations["commandDisplayNameAnnotation"]; exists {
+				if displayName != "kubectl pv-mounter" {
+					t.Errorf("Expected display name 'kubectl pv-mounter', got '%s'", displayName)
+				}
+			}
+		}
+	})
+
+	t.Run("No annotation for non-kubectl invocation", func(t *testing.T) {
+		originalArgs := os.Args
+		os.Args = []string{"pv-mounter"}
+		rootCmd = nil
+		defer func() {
+			os.Args = originalArgs
+			rootCmd = nil
+		}()
+
+		cmd := RootCmd()
+		if cmd.Annotations != nil {
+			if _, exists := cmd.Annotations["commandDisplayNameAnnotation"]; exists {
+				t.Error("Expected no annotation for non-kubectl invocation")
+			}
 		}
 	})
 }

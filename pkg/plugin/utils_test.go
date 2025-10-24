@@ -109,3 +109,88 @@ func TestRandSeq_Uniqueness(t *testing.T) {
 		t.Errorf("Expected at least %d unique sequences, got %d", iterations/2, len(seen))
 	}
 }
+
+func TestValidateKubernetesName(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		fieldName string
+		wantErr   bool
+	}{
+		{
+			name:      "valid name",
+			input:     "my-pvc",
+			fieldName: "pvc-name",
+			wantErr:   false,
+		},
+		{
+			name:      "valid name with numbers",
+			input:     "pvc-123",
+			fieldName: "pvc-name",
+			wantErr:   false,
+		},
+		{
+			name:      "valid single character",
+			input:     "a",
+			fieldName: "namespace",
+			wantErr:   false,
+		},
+		{
+			name:      "empty name",
+			input:     "",
+			fieldName: "namespace",
+			wantErr:   true,
+		},
+		{
+			name:      "name too long",
+			input:     strings.Repeat("a", 254),
+			fieldName: "pvc-name",
+			wantErr:   true,
+		},
+		{
+			name:      "uppercase letters",
+			input:     "MyPVC",
+			fieldName: "pvc-name",
+			wantErr:   true,
+		},
+		{
+			name:      "starts with hyphen",
+			input:     "-invalid",
+			fieldName: "namespace",
+			wantErr:   true,
+		},
+		{
+			name:      "ends with hyphen",
+			input:     "invalid-",
+			fieldName: "pvc-name",
+			wantErr:   true,
+		},
+		{
+			name:      "contains underscore",
+			input:     "my_pvc",
+			fieldName: "pvc-name",
+			wantErr:   true,
+		},
+		{
+			name:      "contains dot",
+			input:     "my.pvc",
+			fieldName: "pvc-name",
+			wantErr:   true,
+		},
+		{
+			name:      "valid at max length",
+			input:     strings.Repeat("a", 253),
+			fieldName: "namespace",
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateKubernetesName(tt.input, tt.fieldName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateKubernetesName() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

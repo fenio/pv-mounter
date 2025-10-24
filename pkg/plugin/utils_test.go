@@ -52,3 +52,50 @@ func TestRandSeq_ZeroAndNegativeLength(t *testing.T) {
 		t.Errorf("Expected empty string for negative length, got %q", seq)
 	}
 }
+
+func TestGenerateKeyPair_DifferentCurves(t *testing.T) {
+	curves := []elliptic.Curve{
+		elliptic.P256(),
+		elliptic.P384(),
+		elliptic.P521(),
+	}
+
+	for _, curve := range curves {
+		t.Run(curve.Params().Name, func(t *testing.T) {
+			privateKey, publicKey, err := GenerateKeyPair(curve)
+			if err != nil {
+				t.Fatalf("GenerateKeyPair with curve %s returned an error: %v", curve.Params().Name, err)
+			}
+			if privateKey == "" {
+				t.Error("GenerateKeyPair returned empty private key")
+			}
+			if publicKey == "" {
+				t.Error("GenerateKeyPair returned empty public key")
+			}
+			if !strings.Contains(privateKey, "BEGIN EC PRIVATE KEY") {
+				t.Error("Private key does not contain expected PEM header")
+			}
+			if !strings.HasPrefix(publicKey, "ecdsa-sha2-") {
+				t.Error("Public key does not have expected SSH format")
+			}
+		})
+	}
+}
+
+func TestRandSeq_Uniqueness(t *testing.T) {
+	length := 10
+	iterations := 100
+	seen := make(map[string]bool)
+
+	for i := 0; i < iterations; i++ {
+		seq := randSeq(length)
+		if seen[seq] {
+			t.Logf("Warning: duplicate sequence generated: %s (this is unlikely but possible)", seq)
+		}
+		seen[seq] = true
+	}
+
+	if len(seen) < iterations/2 {
+		t.Errorf("Expected at least %d unique sequences, got %d", iterations/2, len(seen))
+	}
+}

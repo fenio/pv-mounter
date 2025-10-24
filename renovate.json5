@@ -1,7 +1,25 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base"
+    "config:base",
+    ":enablePreCommit"
   ],
-  "ignorePaths": ["examples/**"]
+  "ignorePaths": ["examples/**"],
+  "regexManagers": [
+    {
+      "fileMatch": ["^\\.github/workflows/.+\\.ya?ml$"],
+      "matchStrings": [
+        "go-version:\\s*['\"]?(?<currentValue>\\d+\\.\\d+\\.\\d+)['\"]?"
+      ],
+      "datasourceTemplate": "golang-version",
+      "depNameTemplate": "golang"
+    },
+    {
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": [
+        "go get (?<depName>k8s\\.io/[^@]+)@(?<currentValue>.+?)\\s"
+      ],
+      "datasourceTemplate": "go"
+    }
+  ]
 }

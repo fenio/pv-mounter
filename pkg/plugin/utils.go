@@ -9,6 +9,7 @@ import (
 	"crypto/elliptic"
 
 	"fmt"
+	"math/big"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -47,7 +48,12 @@ func randSeq(n int) string {
 	letters := []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
+		idx, err := crand.Int(crand.Reader, big.NewInt(int64(len(letters))))
+		if err != nil {
+			b[i] = letters[rand.Intn(len(letters))]
+		} else {
+			b[i] = letters[idx.Int64()]
+		}
 	}
 	return string(b)
 }

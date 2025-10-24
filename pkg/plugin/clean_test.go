@@ -33,8 +33,40 @@ func TestKillProcessInEphemeralContainer(t *testing.T) {
 		ctx := context.Background()
 
 		err := killProcessInEphemeralContainer(ctx, clientset, namespace, podName)
-		if err == nil {
-			t.Log("killProcessInEphemeralContainer() executed (kubectl command expected to fail in test environment)")
+		if err != nil {
+			if err.Error() != "no ephemeral containers found in pod test-pod" {
+				t.Logf("killProcessInEphemeralContainer() executed with error (expected in test): %v", err)
+			}
+		}
+	})
+
+	t.Run("Pod with multiple ephemeral containers", func(t *testing.T) {
+		clientset := fake.NewSimpleClientset(&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: namespace,
+			},
+			Spec: corev1.PodSpec{
+				EphemeralContainers: []corev1.EphemeralContainer{
+					{
+						EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+							Name: "first-container",
+						},
+					},
+					{
+						EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+							Name: "second-container",
+						},
+					},
+				},
+			},
+		})
+
+		ctx := context.Background()
+
+		err := killProcessInEphemeralContainer(ctx, clientset, namespace, podName)
+		if err != nil {
+			t.Logf("killProcessInEphemeralContainer() with multiple containers: %v", err)
 		}
 	})
 

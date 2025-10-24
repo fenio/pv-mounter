@@ -81,10 +81,17 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 	if err := waitForPodReady(ctx, clientset, namespace, podName); err != nil {
 		return err
 	}
-	if err := setupPortForwarding(namespace, podName, port); err != nil {
+	pfCmd, err := setupPortForwarding(namespace, podName, port)
+	if err != nil {
 		return err
 	}
-	return mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot)
+	if err := mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot); err != nil {
+		if pfCmd != nil && pfCmd.Process != nil {
+			pfCmd.Process.Kill()
+		}
+		return err
+	}
+	return nil
 }
 
 func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
@@ -109,10 +116,17 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 	if err := createEphemeralContainer(ctx, clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP, needsRoot, image); err != nil {
 		return err
 	}
-	if err := setupPortForwarding(namespace, podName, port); err != nil {
+	pfCmd, err := setupPortForwarding(namespace, podName, port)
+	if err != nil {
 		return err
 	}
-	return mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot)
+	if err := mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot); err != nil {
+		if pfCmd != nil && pfCmd.Process != nil {
+			pfCmd.Process.Kill()
+		}
+		return err
+	}
+	return nil
 }
 
 func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error {
@@ -248,15 +262,15 @@ func waitForPodReady(ctx context.Context, clientset *kubernetes.Clientset, names
 	})
 }
 
-func setupPortForwarding(namespace, podName string, port int) error {
+func setupPortForwarding(namespace, podName string, port int) (*exec.Cmd, error) {
 	cmd := exec.Command("kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:%d", port, DefaultSSHPort), "-n", namespace)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start port-forward: %v", err)
+		return nil, fmt.Errorf("failed to start port-forward: %v", err)
 	}
-	time.Sleep(5 * time.Second) // Wait a bit for the port forwarding to establish
-	return nil
+	time.Sleep(5 * time.Second)
+	return cmd, nil
 }
 
 func mountPVCOverSSH(

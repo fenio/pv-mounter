@@ -10,7 +10,7 @@ import (
 
 	"fmt"
 	"math/big"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"regexp"
@@ -51,7 +51,7 @@ func randSeq(n int) string {
 	for i := range b {
 		idx, err := crand.Int(crand.Reader, big.NewInt(int64(len(letters))))
 		if err != nil {
-			b[i] = letters[rand.Intn(len(letters))]
+			b[i] = letters[rand.IntN(len(letters))]
 		} else {
 			b[i] = letters[idx.Int64()]
 		}

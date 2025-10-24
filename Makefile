@@ -16,6 +16,10 @@ fmt:
 vet:
 	go vet ./pkg/... ./cmd/...
 
+.PHONY: lint
+lint:
+	golangci-lint run
+
 .PHONY: kubernetes-deps
 kubernetes-deps:
 	go get k8s.io/client-go@v11.0.0

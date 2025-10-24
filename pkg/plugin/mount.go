@@ -5,9 +5,12 @@ import (
 	"crypto/elliptic"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"os/exec"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +38,44 @@ const (
 )
 
 var DefaultID int64 = 2137
+
+var (
+	tempKeyFiles   = make(map[string]struct{})
+	tempKeyFilesMu sync.Mutex
+	cleanupOnce    sync.Once
+)
+
+func init() {
+	cleanupOnce.Do(func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-sigChan
+			cleanupTempKeyFiles()
+			os.Exit(1)
+		}()
+	})
+}
+
+func cleanupTempKeyFiles() {
+	tempKeyFilesMu.Lock()
+	defer tempKeyFilesMu.Unlock()
+	for file := range tempKeyFiles {
+		os.Remove(file)
+	}
+}
+
+func registerTempKeyFile(path string) {
+	tempKeyFilesMu.Lock()
+	defer tempKeyFilesMu.Unlock()
+	tempKeyFiles[path] = struct{}{}
+}
+
+func unregisterTempKeyFile(path string) {
+	tempKeyFilesMu.Lock()
+	defer tempKeyFilesMu.Unlock()
+	delete(tempKeyFiles, path)
+}
 
 func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
 	checkSSHFS()
@@ -290,9 +331,14 @@ func mountPVCOverSSH(
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file for SSH private key: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	keyFilePath := tmpFile.Name()
+	registerTempKeyFile(keyFilePath)
+	defer func() {
+		os.Remove(keyFilePath)
+		unregisterTempKeyFile(keyFilePath)
+	}()
 
-	if err := os.Chmod(tmpFile.Name(), 0600); err != nil {
+	if err := os.Chmod(keyFilePath, 0600); err != nil {
 		return fmt.Errorf("failed to set permissions on temporary SSH key file: %v", err)
 	}
 
@@ -310,7 +356,7 @@ func mountPVCOverSSH(
 
 	sshfsCmd := exec.Command(
 		"sshfs",
-		"-o", fmt.Sprintf("IdentityFile=%s", tmpFile.Name()),
+		"-o", fmt.Sprintf("IdentityFile=%s", keyFilePath),
 		"-o", "StrictHostKeyChecking=no",
 		"-o", "UserKnownHostsFile=/dev/null",
 		"-o", "nomap=ignore",
@@ -337,7 +383,7 @@ func generatePodNameAndPort(role string) (string, int) {
 		baseName = "volume-exposer-proxy"
 	}
 	podName := fmt.Sprintf("%s-%s", baseName, suffix)
-	port := rand.Intn(64511) + 1024
+	port := rand.IntN(64511) + 1024
 	return podName, port
 }
 

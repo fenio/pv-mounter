@@ -438,47 +438,6 @@ func getPVCVolumeName(pod *corev1.Pod) (string, error) {
 	return "", fmt.Errorf("failed to find volume name in the existing pod")
 }
 
-func getEphemeralContainerSettings(needsRoot bool) (string, *corev1.SecurityContext) {
-	image := Image
-	var securityContext *corev1.SecurityContext
-
-	// Define boolean pointers inline
-	allowPrivilegeEscalationTrue := true
-	allowPrivilegeEscalationFalse := false
-	readOnlyRootFilesystemTrue := true
-	runAsNonRootTrue := true
-
-	// Define seccomp profile type
-	seccompProfileRuntimeDefault := corev1.SeccompProfile{
-		Type: corev1.SeccompProfileTypeRuntimeDefault,
-	}
-
-	if needsRoot {
-		image = PrivilegedImage
-		securityContext = &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &allowPrivilegeEscalationTrue,
-			ReadOnlyRootFilesystem:   &readOnlyRootFilesystemTrue,
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
-			},
-			SeccompProfile: &seccompProfileRuntimeDefault,
-		}
-	} else {
-		securityContext = &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &allowPrivilegeEscalationFalse,
-			ReadOnlyRootFilesystem:   &readOnlyRootFilesystemTrue,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			SeccompProfile: &seccompProfileRuntimeDefault,
-			RunAsUser:      &DefaultID,
-			RunAsGroup:     &DefaultID,
-			RunAsNonRoot:   &runAsNonRootTrue,
-		}
-	}
-	return image, securityContext
-}
-
 func getSecurityContext(needsRoot bool) *corev1.SecurityContext {
 	allowPrivilegeEscalationTrue := true
 	allowPrivilegeEscalationFalse := false

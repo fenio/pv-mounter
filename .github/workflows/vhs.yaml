@@ -61,6 +61,12 @@ jobs:
           kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-1 --timeout=120s
           kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-3 --timeout=120s
 
+      - name: Install VHS dependencies
+        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
+        with:
+          packages: ffmpeg
+          version: ${{ runner.arch }}-vhs-1.0
+
       - name: Install VHS
         run: |
           wget https://github.com/charmbracelet/vhs/releases/download/v0.8.0/vhs_0.8.0_amd64.deb

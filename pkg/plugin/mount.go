@@ -156,8 +156,12 @@ func setupPodAndWait(ctx context.Context, clientset *kubernetes.Clientset, names
 	return podName, port, nil
 }
 
-func setupPortForwardAndMount(ctx context.Context, namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot, debug bool) error {
-	pfCmd, err := setupPortForwarding(ctx, namespace, podName, port, debug)
+func setupPortForwardAndMount(ctx context.Context, namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot, debug bool, isProxyMode bool) error {
+	timeout := 30 * time.Second
+	if isProxyMode {
+		timeout = 60 * time.Second
+	}
+	pfCmd, err := setupPortForwarding(ctx, namespace, podName, port, debug, timeout)
 	if err != nil {
 		return err
 	}
@@ -185,7 +189,7 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug)
+	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, false)
 }
 
 func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
@@ -214,7 +218,7 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug)
+	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, true)
 }
 
 func cleanupPortForward(cmd *exec.Cmd) {
@@ -392,7 +396,7 @@ func waitForPodReady(ctx context.Context, clientset *kubernetes.Clientset, names
 	})
 }
 
-func setupPortForwarding(ctx context.Context, namespace, podName string, port int, debug bool) (*exec.Cmd, error) {
+func setupPortForwarding(ctx context.Context, namespace, podName string, port int, debug bool, timeout time.Duration) (*exec.Cmd, error) {
 	cmd := exec.CommandContext(ctx, "kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:%d", port, DefaultSSHPort), "-n", namespace) // #nosec G204 -- namespace and podName are validated Kubernetes resource names
 	if debug {
 		cmd.Stdout = os.Stdout
@@ -402,7 +406,7 @@ func setupPortForwarding(ctx context.Context, namespace, podName string, port in
 		return nil, fmt.Errorf("failed to start port-forward: %w", err)
 	}
 
-	if err := waitForSSHReady(ctx, port, 30*time.Second); err != nil {
+	if err := waitForSSHReady(ctx, port, timeout); err != nil {
 		cleanupPortForward(cmd)
 		return nil, fmt.Errorf("failed to establish SSH connection: %w", err)
 	}

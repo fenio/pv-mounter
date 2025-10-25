@@ -25,7 +25,7 @@ func mountCmd() *cobra.Command {
 This command sets up necessary Kubernetes resources and establishes an SSHFS connection
 to mount the specified PVC locally.`,
 		Args: cobra.ExactArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			if env, exists := os.LookupEnv("NEEDS_ROOT"); exists {
 				if parsed, err := strconv.ParseBool(env); err == nil {
 					needsRoot = parsed

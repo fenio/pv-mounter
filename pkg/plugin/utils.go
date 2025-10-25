@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// BuildKubeClient creates a Kubernetes clientset from the kubeconfig file.
 func BuildKubeClient() (*kubernetes.Clientset, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
@@ -51,7 +52,7 @@ func randSeq(n int) string {
 	for i := range b {
 		idx, err := crand.Int(crand.Reader, big.NewInt(int64(len(letters))))
 		if err != nil {
-			b[i] = letters[rand.IntN(len(letters))]
+			b[i] = letters[rand.IntN(len(letters))] // #nosec G404 -- fallback only, crypto/rand is attempted first
 		} else {
 			b[i] = letters[idx.Int64()]
 		}
@@ -59,6 +60,7 @@ func randSeq(n int) string {
 	return string(b)
 }
 
+// GenerateKeyPair generates an ECDSA key pair for SSH authentication.
 func GenerateKeyPair(curve elliptic.Curve) (string, string, error) {
 	if curve == nil {
 		return "", "", fmt.Errorf("curve must not be nil")
@@ -113,6 +115,7 @@ func checkSSHFS() {
 	}
 }
 
+// ValidateKubernetesName validates that a name conforms to Kubernetes naming rules.
 func ValidateKubernetesName(name, fieldName string) error {
 	if name == "" {
 		return fmt.Errorf("%s cannot be empty", fieldName)

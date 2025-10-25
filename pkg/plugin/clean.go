@@ -1,3 +1,4 @@
+// Package plugin implements the core functionality for mounting and cleaning PVCs.
 package plugin
 
 import (
@@ -11,6 +12,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// Clean unmounts a PVC and removes associated resources including proxy pods and port-forwarding.
 func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) error {
 	if err := ValidateKubernetesName(namespace, "namespace"); err != nil {
 		return err
@@ -21,9 +23,9 @@ func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) erro
 
 	var umountCmd *exec.Cmd
 	if runtime.GOOS == "darwin" {
-		umountCmd = exec.Command("umount", localMountPoint)
+		umountCmd = exec.CommandContext(ctx, "umount", localMountPoint)
 	} else {
-		umountCmd = exec.Command("fusermount", "-u", localMountPoint)
+		umountCmd = exec.CommandContext(ctx, "fusermount", "-u", localMountPoint)
 	}
 	umountCmd.Stdout = os.Stdout
 	umountCmd.Stderr = os.Stderr
@@ -54,8 +56,7 @@ func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) erro
 	podName := podList.Items[0].Name
 	port := podList.Items[0].Labels["portNumber"]
 
-	// Kill the port-forward process
-	pkillCmd := exec.Command("pkill", "-f", fmt.Sprintf("kubectl port-forward pod/%s %s:2137", podName, port))
+	pkillCmd := exec.CommandContext(ctx, "pkill", "-f", fmt.Sprintf("kubectl port-forward pod/%s %s:2137", podName, port)) // #nosec G204 -- podName and port are from validated Kubernetes resources
 	pkillCmd.Stdout = os.Stdout
 	pkillCmd.Stderr = os.Stderr
 	if err := pkillCmd.Run(); err != nil {
@@ -100,7 +101,7 @@ func killProcessInEphemeralContainer(ctx context.Context, clientset kubernetes.I
 	// Command to kill the process (adjust the process name or ID as necessary)
 	killCmd := []string{"pkill", "-f", "tail"} // Replace "tail" with the actual process name or use a specific PID
 
-	cmd := exec.Command("kubectl", append([]string{"exec", podName, "-n", namespace, "-c", ephemeralContainerName, "--"}, killCmd...)...)
+	cmd := exec.CommandContext(ctx, "kubectl", append([]string{"exec", podName, "-n", namespace, "-c", ephemeralContainerName, "--"}, killCmd...)...) // #nosec G204 -- podName, namespace, and ephemeralContainerName are from validated Kubernetes resources
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

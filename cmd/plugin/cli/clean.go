@@ -1,3 +1,4 @@
+// Package cli implements the command-line interface for pv-mounter.
 package cli
 
 import (
@@ -17,7 +18,7 @@ func cleanCmd() *cobra.Command {
 This command unmounts the local directory, terminates port-forwarding,
 removes any proxy pods created, and cleans up ephemeral containers.`,
 		Args: cobra.ExactArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			namespace := args[0]
 			pvcName := args[1]
 			localMountPoint := args[2]

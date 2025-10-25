@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/fenio/pv-mounter/cmd/plugin/cli"
-	"github.com/spf13/cobra/doc"
 	"log"
 	"os"
+
+	"github.com/fenio/pv-mounter/cmd/plugin/cli"
+	"github.com/spf13/cobra/doc"
 )
 
 func main() {

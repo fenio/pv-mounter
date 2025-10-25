@@ -28,7 +28,7 @@ func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) erro
 	umountCmd.Stdout = os.Stdout
 	umountCmd.Stderr = os.Stderr
 	if err := umountCmd.Run(); err != nil {
-		return fmt.Errorf("failed to unmount SSHFS: %v", err)
+		return fmt.Errorf("failed to unmount SSHFS: %w", err)
 	}
 	fmt.Printf("Unmounted %s successfully\n", localMountPoint)
 
@@ -44,7 +44,7 @@ func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) erro
 		LabelSelector: fmt.Sprintf("pvcName=%s", pvcName),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list pods: %v", err)
+		return fmt.Errorf("failed to list pods: %w", err)
 	}
 
 	if len(podList.Items) == 0 {
@@ -59,7 +59,7 @@ func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) erro
 	pkillCmd.Stdout = os.Stdout
 	pkillCmd.Stderr = os.Stderr
 	if err := pkillCmd.Run(); err != nil {
-		return fmt.Errorf("failed to kill port-forward process: %v", err)
+		return fmt.Errorf("failed to kill port-forward process: %w", err)
 	}
 	fmt.Printf("Port-forward process for pod %s killed successfully\n", podName)
 
@@ -68,7 +68,7 @@ func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) erro
 	if originalPodName != "" {
 		err = killProcessInEphemeralContainer(ctx, clientset, namespace, originalPodName)
 		if err != nil {
-			return fmt.Errorf("failed to kill process in ephemeral container: %v", err)
+			return fmt.Errorf("failed to kill process in ephemeral container: %w", err)
 		}
 		fmt.Printf("Process in ephemeral container killed successfully in pod %s\n", originalPodName)
 	}
@@ -76,7 +76,7 @@ func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) erro
 	// Delete the proxy pod
 	err = podClient.Delete(ctx, podName, metav1.DeleteOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to delete pod: %v", err)
+		return fmt.Errorf("failed to delete pod: %w", err)
 	}
 	fmt.Printf("Proxy pod %s deleted successfully\n", podName)
 
@@ -87,7 +87,7 @@ func killProcessInEphemeralContainer(ctx context.Context, clientset kubernetes.I
 	// Retrieve the existing pod to get the ephemeral container name
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get existing pod: %v", err)
+		return fmt.Errorf("failed to get existing pod: %w", err)
 	}
 
 	if len(existingPod.Spec.EphemeralContainers) == 0 {
@@ -104,7 +104,7 @@ func killProcessInEphemeralContainer(ctx context.Context, clientset kubernetes.I
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to kill process in container %s of pod %s: %v", ephemeralContainerName, podName, err)
+		return fmt.Errorf("failed to kill process in container %s of pod %s: %w", ephemeralContainerName, podName, err)
 	}
 	return nil
 }

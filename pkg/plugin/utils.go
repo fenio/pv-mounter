@@ -31,12 +31,12 @@ func BuildKubeClient() (*kubernetes.Clientset, error) {
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build Kubernetes config: %v", err)
+		return nil, fmt.Errorf("failed to build Kubernetes config: %w", err)
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
+		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
 	return clientset, nil
@@ -66,13 +66,13 @@ func GenerateKeyPair(curve elliptic.Curve) (string, string, error) {
 	// Generate a new private key
 	privateKey, err := ecdsa.GenerateKey(curve, crand.Reader)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate private key: %v", err)
+		return "", "", fmt.Errorf("failed to generate private key: %w", err)
 	}
 
 	// Encode the private key to PKCS8 format
 	privateKeyPKCS8, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to marshal private key to PKCS8: %v", err)
+		return "", "", fmt.Errorf("failed to marshal private key to PKCS8: %w", err)
 	}
 
 	// Encode the private key to PEM format
@@ -87,7 +87,7 @@ func GenerateKeyPair(curve elliptic.Curve) (string, string, error) {
 	// Convert the ECDSA public key to the ssh.PublicKey type
 	sshPublicKey, err := ssh.NewPublicKey(publicKey)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create SSH public key: %v", err)
+		return "", "", fmt.Errorf("failed to create SSH public key: %w", err)
 	}
 
 	// Encode the SSH public key to the authorized_keys format
@@ -101,11 +101,12 @@ func checkSSHFS() {
 	_, err := exec.LookPath("sshfs")
 	if err != nil {
 		fmt.Println("sshfs is not available in your environment.")
-		if runtime.GOOS == "darwin" {
+		switch runtime.GOOS {
+		case "darwin":
 			fmt.Println("For macOS, please install sshfs by visiting: https://osxfuse.github.io/")
-		} else if runtime.GOOS == "linux" {
+		case "linux":
 			fmt.Println("For Linux, please install sshfs by visiting: https://github.com/libfuse/sshfs")
-		} else {
+		default:
 			fmt.Println("Please install sshfs and try again.")
 		}
 		os.Exit(1)

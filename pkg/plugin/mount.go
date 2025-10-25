@@ -122,7 +122,7 @@ type mountConfig struct {
 func generateAndDebugKeys(debug bool) (privateKey, publicKey string, err error) {
 	privateKey, publicKey, err = GenerateKeyPair(elliptic.P256())
 	if err != nil {
-		return "", "", fmt.Errorf("error generating key pair: %v", err)
+		return "", "", fmt.Errorf("error generating key pair: %w", err)
 	}
 	if debug {
 		fmt.Printf("Private Key:\n%s\n", privateKey)
@@ -211,7 +211,7 @@ func cleanupPortForward(cmd *exec.Cmd) {
 func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error {
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get existing pod: %v", err)
+		return fmt.Errorf("failed to get existing pod: %w", err)
 	}
 	volumeName, err := getPVCVolumeName(existingPod)
 	if err != nil {
@@ -255,11 +255,11 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to marshal ephemeral container spec: %v", err)
+		return fmt.Errorf("failed to marshal ephemeral container spec: %w", err)
 	}
 	_, err = clientset.CoreV1().Pods(namespace).Patch(ctx, podName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}, "ephemeralcontainers")
 	if err != nil {
-		return fmt.Errorf("failed to patch pod with ephemeral container: %v", err)
+		return fmt.Errorf("failed to patch pod with ephemeral container: %w", err)
 	}
 	fmt.Printf("Successfully added ephemeral container %s to pod %s\n", ephemeralContainerName, podName)
 	return nil
@@ -268,7 +268,7 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 func getPodIP(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) (string, error) {
 	pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to get pod IP: %v", err)
+		return "", fmt.Errorf("failed to get pod IP: %w", err)
 	}
 	return pod.Status.PodIP, nil
 }
@@ -277,13 +277,13 @@ func checkPVAccessMode(ctx context.Context, clientset *kubernetes.Clientset, pvc
 	pvName := pvc.Spec.VolumeName
 	pv, err := clientset.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
 	if err != nil {
-		return true, "", fmt.Errorf("failed to get PV: %v", err)
+		return true, "", fmt.Errorf("failed to get PV: %w", err)
 	}
 
 	if contains(pv.Spec.AccessModes, corev1.ReadWriteOnce) {
 		podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
-			return true, "", fmt.Errorf("failed to list pods: %v", err)
+			return true, "", fmt.Errorf("failed to list pods: %w", err)
 		}
 		for _, pod := range podList.Items {
 			for _, volume := range pod.Spec.Volumes {
@@ -308,7 +308,7 @@ func contains(modes []corev1.PersistentVolumeAccessMode, modeToFind corev1.Persi
 func checkPVCUsage(ctx context.Context, clientset kubernetes.Interface, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
 	pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, pvcName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get PVC: %v", err)
+		return nil, fmt.Errorf("failed to get PVC: %w", err)
 	}
 	if pvc.Status.Phase != corev1.ClaimBound {
 		return nil, fmt.Errorf("PVC %s is not bound", pvcName)
@@ -320,7 +320,7 @@ func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, p
 	podName, port := generatePodNameAndPort(role)
 	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot, image, imageSecret, cpuLimit)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
-		return "", 0, fmt.Errorf("failed to create pod: %v", err)
+		return "", 0, fmt.Errorf("failed to create pod: %w", err)
 	}
 	fmt.Printf("Pod %s created successfully\n", podName)
 	return podName, port, nil
@@ -346,7 +346,7 @@ func setupPortForwarding(namespace, podName string, port int) (*exec.Cmd, error)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start port-forward: %v", err)
+		return nil, fmt.Errorf("failed to start port-forward: %w", err)
 	}
 	time.Sleep(5 * time.Second)
 	return cmd, nil
@@ -359,7 +359,7 @@ func mountPVCOverSSH(
 
 	tmpFile, err := os.CreateTemp("", "ssh_key_*.pem")
 	if err != nil {
-		return fmt.Errorf("failed to create temporary file for SSH private key: %v", err)
+		return fmt.Errorf("failed to create temporary file for SSH private key: %w", err)
 	}
 	keyFilePath := tmpFile.Name()
 	registerTempKeyFile(keyFilePath)
@@ -369,14 +369,14 @@ func mountPVCOverSSH(
 	}()
 
 	if err := os.Chmod(keyFilePath, 0600); err != nil {
-		return fmt.Errorf("failed to set permissions on temporary SSH key file: %v", err)
+		return fmt.Errorf("failed to set permissions on temporary SSH key file: %w", err)
 	}
 
 	if _, err := tmpFile.Write([]byte(privateKey)); err != nil {
-		return fmt.Errorf("failed to write SSH private key to temporary file: %v", err)
+		return fmt.Errorf("failed to write SSH private key to temporary file: %w", err)
 	}
 	if err := tmpFile.Close(); err != nil {
-		return fmt.Errorf("failed to close temporary file: %v", err)
+		return fmt.Errorf("failed to close temporary file: %w", err)
 	}
 
 	sshUser := "ve"
@@ -399,7 +399,7 @@ func mountPVCOverSSH(
 	sshfsCmd.Stderr = os.Stderr
 
 	if err := sshfsCmd.Run(); err != nil {
-		return fmt.Errorf("failed to mount PVC using SSHFS: %v", err)
+		return fmt.Errorf("failed to mount PVC using SSHFS: %w", err)
 	}
 
 	fmt.Printf("PVC %s mounted successfully to %s\n", pvcName, localMountPoint)

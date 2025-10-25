@@ -218,6 +218,10 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
+	if err := waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, debug); err != nil {
+		return err
+	}
+
 	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, true)
 }
 
@@ -318,6 +322,52 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 	}
 	fmt.Printf("Successfully added ephemeral container %s to pod %s\n", ephemeralContainerName, podName)
 	return nil
+}
+
+func waitForEphemeralContainerReady(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string, debug bool) error {
+	timeout := 60 * time.Second
+	deadline := time.Now().Add(timeout)
+
+	if debug {
+		fmt.Printf("Waiting for ephemeral container to be ready in pod %s...\n", podName)
+	}
+
+	return wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		if len(pod.Status.EphemeralContainerStatuses) == 0 {
+			if debug && time.Now().Add(5*time.Second).After(deadline) {
+				fmt.Printf("Still waiting for ephemeral container status to appear...\n")
+			}
+			return false, nil
+		}
+
+		ephemeralStatus := pod.Status.EphemeralContainerStatuses[len(pod.Status.EphemeralContainerStatuses)-1]
+
+		if ephemeralStatus.State.Running != nil {
+			if debug {
+				fmt.Printf("Ephemeral container %s is running\n", ephemeralStatus.Name)
+			}
+			time.Sleep(3 * time.Second)
+			return true, nil
+		}
+
+		if ephemeralStatus.State.Waiting != nil {
+			if debug {
+				fmt.Printf("Ephemeral container %s is waiting: %s\n", ephemeralStatus.Name, ephemeralStatus.State.Waiting.Reason)
+			}
+			return false, nil
+		}
+
+		if ephemeralStatus.State.Terminated != nil {
+			return false, fmt.Errorf("ephemeral container terminated: %s", ephemeralStatus.State.Terminated.Reason)
+		}
+
+		return false, nil
+	})
 }
 
 func getPodIP(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) (string, error) {

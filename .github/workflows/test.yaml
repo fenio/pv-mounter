@@ -21,11 +21,6 @@ jobs:
 
     steps:
 
-#      - name: Harden the runner (Audit all outbound calls)
-#        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
-#        with:
-#          egress-policy: audit
-
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
@@ -128,27 +123,26 @@ jobs:
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-6 foo
 
-      - name: Wait for 7th PVC to be ready
-        run: |
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-7
-
       - name: '[TEST] PVC with RWX access mode (DEBUG)'
         run: |
           ./bin/pv-mounter mount --debug default pvc-7 foo
-          touch foo/baz
-          ls -l foo/baz
+          touch foo/bar
+          ls -l foo/bar
           ./bin/pv-mounter clean default pvc-7 foo
 
-      - name: Wait for 8th PVC to be ready
+      - name: '[TEST] Mounted PVC with RWO access mode (DEBUG)'
         run: |
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-8
+          ./bin/pv-mounter mount --debug default pvc-8 foo
+          touch foo/bar
+          ls -l foo/bar
+          ./bin/pv-mounter clean default pvc-8 foo
 
       - name: '[TEST] Mounted PVC with RWO access mode (DEBUG + NEEDS_ROOT)'
         run: |
-          ./bin/pv-mounter mount --debug --needs-root default pvc-8 foo
-          touch foo/qux
-          ls -l foo/qux
-          ./bin/pv-mounter clean default pvc-8 foo
+          ./bin/pv-mounter mount --debug --needs-root default pvc-9 foo
+          touch foo/bar
+          ls -l foo/bar
+          ./bin/pv-mounter clean default pvc-9 foo
 
       - name: Delete PODs and PVCs
         run: kubectl delete -f test --force --grace-period=0

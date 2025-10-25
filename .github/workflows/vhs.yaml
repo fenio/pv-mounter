@@ -70,7 +70,7 @@ jobs:
         run: make vhs
 
       - name: Upload demo artifacts
-        uses: actions/upload-artifact@ea165f2bbf09f4803ce3ea000a8f1b3e63d8c813 # v4.5.0
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.2
         with:
           name: vhs-demos
           path: |

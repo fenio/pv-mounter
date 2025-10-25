@@ -155,8 +155,8 @@ func setupPodAndWait(ctx context.Context, clientset *kubernetes.Clientset, names
 	return podName, port, nil
 }
 
-func setupPortForwardAndMount(ctx context.Context, namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot bool) error {
-	pfCmd, err := setupPortForwarding(ctx, namespace, podName, port)
+func setupPortForwardAndMount(ctx context.Context, namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot, debug bool) error {
+	pfCmd, err := setupPortForwarding(ctx, namespace, podName, port, debug)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
+	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug)
 }
 
 func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
@@ -213,7 +213,7 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
+	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug)
 }
 
 func cleanupPortForward(cmd *exec.Cmd) {
@@ -355,14 +355,19 @@ func waitForPodReady(ctx context.Context, clientset *kubernetes.Clientset, names
 	})
 }
 
-func setupPortForwarding(ctx context.Context, namespace, podName string, port int) (*exec.Cmd, error) {
+func setupPortForwarding(ctx context.Context, namespace, podName string, port int, debug bool) (*exec.Cmd, error) {
 	cmd := exec.CommandContext(ctx, "kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:%d", port, DefaultSSHPort), "-n", namespace) // #nosec G204 -- namespace and podName are validated Kubernetes resource names
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if debug {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start port-forward: %w", err)
 	}
 	time.Sleep(5 * time.Second)
+	if !debug {
+		fmt.Printf("Forwarding from 127.0.0.1:%d -> %d\n", port, DefaultSSHPort)
+	}
 	return cmd, nil
 }
 

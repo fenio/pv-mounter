@@ -38,6 +38,10 @@ linters:
     - noctx           # Find http requests without context
     - gocritic        # Opinionated Go linter
     - copyloopvar     # Detect loop variable copies
+    
+    # Nil safety and vulnerability checks
+    - nilnil          # Check for unnecessary nil returns
+    - nilerr          # Check for returning nil with non-nil error
 
 linters-settings:
   errcheck:

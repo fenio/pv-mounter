@@ -128,5 +128,27 @@ jobs:
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-6 foo
 
+      - name: Wait for 7th PVC to be ready
+        run: |
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-7
+
+      - name: '[TEST] PVC with RWX access mode (DEBUG)'
+        run: |
+          ./bin/pv-mounter mount --debug default pvc-7 foo
+          touch foo/baz
+          ls -l foo/baz
+          ./bin/pv-mounter clean default pvc-7 foo
+
+      - name: Wait for 8th PVC to be ready
+        run: |
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-8
+
+      - name: '[TEST] Mounted PVC with RWO access mode (DEBUG + NEEDS_ROOT)'
+        run: |
+          ./bin/pv-mounter mount --debug --needs-root default pvc-8 foo
+          touch foo/qux
+          ls -l foo/qux
+          ./bin/pv-mounter clean default pvc-8 foo
+
       - name: Delete PODs and PVCs
         run: kubectl delete -f test --force --grace-period=0

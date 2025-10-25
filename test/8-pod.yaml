@@ -13,4 +13,4 @@ spec:
   volumes:
   - name: test-volume
     persistentVolumeClaim:
-      claimName: pvc-9
+      claimName: pvc-8

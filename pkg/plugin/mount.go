@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -184,7 +185,12 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
+	if err := setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot); err != nil {
+		cleanupTempKeyFiles()
+		return err
+	}
+
+	return nil
 }
 
 func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
@@ -213,13 +219,39 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
+	if err := setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot); err != nil {
+		cleanupTempKeyFiles()
+		return err
+	}
+
+	return nil
 }
 
 func cleanupPortForward(cmd *exec.Cmd) {
 	if cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Kill()
 	}
+}
+
+func waitForPortAvailability(ctx context.Context, port int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	dialer := &net.Dialer{
+		Timeout: 500 * time.Millisecond,
+	}
+	for time.Now().Before(deadline) {
+		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("localhost:%d", port))
+		if err == nil {
+			_ = conn.Close()
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+	return fmt.Errorf("timeout waiting for port %d to become available", port)
 }
 
 func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error {
@@ -362,7 +394,12 @@ func setupPortForwarding(ctx context.Context, namespace, podName string, port in
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start port-forward: %w", err)
 	}
-	time.Sleep(5 * time.Second)
+
+	if err := waitForPortAvailability(ctx, port, 30*time.Second); err != nil {
+		cleanupPortForward(cmd)
+		return nil, fmt.Errorf("port-forward failed to become available: %w", err)
+	}
+
 	return cmd, nil
 }
 

@@ -198,18 +198,29 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	config := mountConfig{
-		role:            "proxy",
-		sshPort:         ProxySSHPort,
-		originalPodName: podUsingPVC,
-	}
-
-	podName, port, err := setupPodAndWait(ctx, clientset, namespace, pvcName, publicKey, config, needsRoot, image, imageSecret, cpuLimit)
+	proxyPodName, port, err := setupProxyPod(ctx, clientset, namespace, pvcName, publicKey, podUsingPVC, needsRoot, image, imageSecret, cpuLimit)
 	if err != nil {
 		return err
 	}
 
-	proxyPodIP, err := getPodIP(ctx, clientset, namespace, podName)
+	if err := setupEphemeralContainerWithTunnel(ctx, clientset, namespace, podUsingPVC, proxyPodName, privateKey, publicKey, needsRoot, debug, image); err != nil {
+		return err
+	}
+
+	return setupPortForwardAndMount(ctx, namespace, proxyPodName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, true)
+}
+
+func setupProxyPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) (string, int, error) {
+	config := mountConfig{
+		role:            "proxy",
+		sshPort:         ProxySSHPort,
+		originalPodName: originalPodName,
+	}
+	return setupPodAndWait(ctx, clientset, namespace, pvcName, publicKey, config, needsRoot, image, imageSecret, cpuLimit)
+}
+
+func setupEphemeralContainerWithTunnel(ctx context.Context, clientset *kubernetes.Clientset, namespace, podUsingPVC, proxyPodName, privateKey, publicKey string, needsRoot, debug bool, image string) error {
+	proxyPodIP, err := getPodIP(ctx, clientset, namespace, proxyPodName)
 	if err != nil {
 		return err
 	}
@@ -218,11 +229,7 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	if err := waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, debug); err != nil {
-		return err
-	}
-
-	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, true)
+	return waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, debug)
 }
 
 func cleanupPortForward(cmd *exec.Cmd) {
@@ -245,26 +252,30 @@ func waitForSSHReady(ctx context.Context, port int, timeout time.Duration) error
 				return fmt.Errorf("timeout waiting for SSH daemon to become ready on port %d", port)
 			}
 
-			dialer := &net.Dialer{Timeout: time.Second}
-			conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", port))
-			if err != nil {
-				continue
-			}
-
-			buf := make([]byte, 4)
-			if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
-				_ = conn.Close()
-				continue
-			}
-
-			n, err := conn.Read(buf)
-			_ = conn.Close()
-
-			if err == nil && n >= 3 && string(buf[:3]) == "SSH" {
+			if isSSHReady(ctx, port) {
 				return nil
 			}
 		}
 	}
+}
+
+func isSSHReady(ctx context.Context, port int) bool {
+	dialer := &net.Dialer{Timeout: time.Second}
+	conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return false
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+
+	buf := make([]byte, 4)
+	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		return false
+	}
+
+	n, err := conn.Read(buf)
+	return err == nil && n >= 3 && string(buf[:3]) == "SSH"
 }
 
 func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error {
@@ -278,18 +289,24 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 	}
 	ephemeralContainerName := fmt.Sprintf("volume-exposer-ephemeral-%s", randSeq(5))
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
-	imageToUse := image
-	if imageToUse == "" {
-		if needsRoot {
-			imageToUse = PrivilegedImage
-		} else {
-			imageToUse = Image
-		}
+
+	ephemeralContainer := buildEphemeralContainerSpec(ephemeralContainerName, volumeName, privateKey, publicKey, proxyPodIP, needsRoot, image)
+
+	if err := patchPodWithEphemeralContainer(ctx, clientset, namespace, podName, ephemeralContainer); err != nil {
+		return err
 	}
+
+	fmt.Printf("Successfully added ephemeral container %s to pod %s\n", ephemeralContainerName, podName)
+	return nil
+}
+
+func buildEphemeralContainerSpec(name, volumeName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) corev1.EphemeralContainer {
+	imageToUse := selectImage(image, needsRoot)
 	securityContext := getSecurityContext(needsRoot)
-	ephemeralContainer := corev1.EphemeralContainer{
+
+	return corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
-			Name:            ephemeralContainerName,
+			Name:            name,
 			Image:           imageToUse,
 			ImagePullPolicy: corev1.PullAlways,
 			Env: []corev1.EnvVar{
@@ -308,6 +325,9 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 			},
 		},
 	}
+}
+
+func patchPodWithEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string, ephemeralContainer corev1.EphemeralContainer) error {
 	patchData, err := json.Marshal(map[string]interface{}{
 		"spec": map[string]interface{}{
 			"ephemeralContainers": []corev1.EphemeralContainer{ephemeralContainer},
@@ -320,7 +340,6 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 	if err != nil {
 		return fmt.Errorf("failed to patch pod with ephemeral container: %w", err)
 	}
-	fmt.Printf("Successfully added ephemeral container %s to pod %s\n", ephemeralContainerName, podName)
 	return nil
 }
 
@@ -338,36 +357,40 @@ func waitForEphemeralContainerReady(ctx context.Context, clientset *kubernetes.C
 			return false, err
 		}
 
-		if len(pod.Status.EphemeralContainerStatuses) == 0 {
-			if debug && time.Now().Add(5*time.Second).After(deadline) {
-				fmt.Printf("Still waiting for ephemeral container status to appear...\n")
-			}
-			return false, nil
-		}
-
-		ephemeralStatus := pod.Status.EphemeralContainerStatuses[len(pod.Status.EphemeralContainerStatuses)-1]
-
-		if ephemeralStatus.State.Running != nil {
-			if debug {
-				fmt.Printf("Ephemeral container %s is running\n", ephemeralStatus.Name)
-			}
-			time.Sleep(3 * time.Second)
-			return true, nil
-		}
-
-		if ephemeralStatus.State.Waiting != nil {
-			if debug {
-				fmt.Printf("Ephemeral container %s is waiting: %s\n", ephemeralStatus.Name, ephemeralStatus.State.Waiting.Reason)
-			}
-			return false, nil
-		}
-
-		if ephemeralStatus.State.Terminated != nil {
-			return false, fmt.Errorf("ephemeral container terminated: %s", ephemeralStatus.State.Terminated.Reason)
-		}
-
-		return false, nil
+		return checkEphemeralContainerStatus(pod, deadline, debug)
 	})
+}
+
+func checkEphemeralContainerStatus(pod *corev1.Pod, deadline time.Time, debug bool) (bool, error) {
+	if len(pod.Status.EphemeralContainerStatuses) == 0 {
+		if debug && time.Now().Add(5*time.Second).After(deadline) {
+			fmt.Printf("Still waiting for ephemeral container status to appear...\n")
+		}
+		return false, nil
+	}
+
+	ephemeralStatus := pod.Status.EphemeralContainerStatuses[len(pod.Status.EphemeralContainerStatuses)-1]
+
+	if ephemeralStatus.State.Running != nil {
+		if debug {
+			fmt.Printf("Ephemeral container %s is running\n", ephemeralStatus.Name)
+		}
+		time.Sleep(3 * time.Second)
+		return true, nil
+	}
+
+	if ephemeralStatus.State.Waiting != nil {
+		if debug {
+			fmt.Printf("Ephemeral container %s is waiting: %s\n", ephemeralStatus.Name, ephemeralStatus.State.Waiting.Reason)
+		}
+		return false, nil
+	}
+
+	if ephemeralStatus.State.Terminated != nil {
+		return false, fmt.Errorf("ephemeral container terminated: %s", ephemeralStatus.State.Terminated.Reason)
+	}
+
+	return false, nil
 }
 
 func getPodIP(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) (string, error) {
@@ -473,43 +496,14 @@ func mountPVCOverSSH(
 	localMountPoint, pvcName, privateKey string,
 	needsRoot bool) error {
 
-	tmpFile, err := os.CreateTemp("", "ssh_key_*.pem")
+	keyFilePath, cleanup, err := createTempSSHKeyFile(privateKey)
 	if err != nil {
-		return fmt.Errorf("failed to create temporary file for SSH private key: %w", err)
+		return err
 	}
-	keyFilePath := tmpFile.Name()
-	registerTempKeyFile(keyFilePath)
-	defer func() {
-		_ = os.Remove(keyFilePath)
-		unregisterTempKeyFile(keyFilePath)
-	}()
+	defer cleanup()
 
-	if err := os.Chmod(keyFilePath, 0600); err != nil {
-		return fmt.Errorf("failed to set permissions on temporary SSH key file: %w", err)
-	}
-
-	if _, err := tmpFile.Write([]byte(privateKey)); err != nil {
-		return fmt.Errorf("failed to write SSH private key to temporary file: %w", err)
-	}
-	if err := tmpFile.Close(); err != nil {
-		return fmt.Errorf("failed to close temporary file: %w", err)
-	}
-
-	sshUser := "ve"
-	if needsRoot {
-		sshUser = "root"
-	}
-
-	sshfsCmd := exec.CommandContext(ctx, // #nosec G204 -- keyFilePath is a securely created temp file, localMountPoint is user-provided
-		"sshfs",
-		"-o", fmt.Sprintf("IdentityFile=%s", keyFilePath),
-		"-o", "StrictHostKeyChecking=no",
-		"-o", "UserKnownHostsFile=/dev/null",
-		"-o", "nomap=ignore",
-		fmt.Sprintf("%s@localhost:/volume", sshUser),
-		localMountPoint,
-		"-p", fmt.Sprintf("%d", port),
-	)
+	sshUser := selectSSHUser(needsRoot)
+	sshfsCmd := buildSSHFSCommand(ctx, keyFilePath, sshUser, localMountPoint, port)
 
 	sshfsCmd.Stdout = os.Stdout
 	sshfsCmd.Stderr = os.Stderr
@@ -520,6 +514,56 @@ func mountPVCOverSSH(
 
 	fmt.Printf("PVC %s mounted successfully to %s\n", pvcName, localMountPoint)
 	return nil
+}
+
+func createTempSSHKeyFile(privateKey string) (string, func(), error) {
+	tmpFile, err := os.CreateTemp("", "ssh_key_*.pem")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create temporary file for SSH private key: %w", err)
+	}
+	keyFilePath := tmpFile.Name()
+	registerTempKeyFile(keyFilePath)
+
+	cleanup := func() {
+		_ = os.Remove(keyFilePath)
+		unregisterTempKeyFile(keyFilePath)
+	}
+
+	if err := os.Chmod(keyFilePath, 0600); err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("failed to set permissions on temporary SSH key file: %w", err)
+	}
+
+	if _, err := tmpFile.Write([]byte(privateKey)); err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("failed to write SSH private key to temporary file: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("failed to close temporary file: %w", err)
+	}
+
+	return keyFilePath, cleanup, nil
+}
+
+func selectSSHUser(needsRoot bool) string {
+	if needsRoot {
+		return "root"
+	}
+	return "ve"
+}
+
+func buildSSHFSCommand(ctx context.Context, keyFilePath, sshUser, localMountPoint string, port int) *exec.Cmd {
+	return exec.CommandContext(ctx, // #nosec G204 -- keyFilePath is a securely created temp file, localMountPoint is user-provided
+		"sshfs",
+		"-o", fmt.Sprintf("IdentityFile=%s", keyFilePath),
+		"-o", "StrictHostKeyChecking=no",
+		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "nomap=ignore",
+		fmt.Sprintf("%s@localhost:/volume", sshUser),
+		localMountPoint,
+		"-p", fmt.Sprintf("%d", port),
+	)
 }
 
 func generatePodNameAndPort(role string) (string, int) {

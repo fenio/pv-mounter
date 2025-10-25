@@ -43,6 +43,11 @@ jobs:
         run: |
           go test -v -coverprofile=coverage.out ./...
 
+      - name: Run vulnerability check
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:

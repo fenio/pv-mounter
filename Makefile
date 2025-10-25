@@ -27,3 +27,7 @@ vuln:
 .PHONY: docs
 docs:
 	go run cmd/plugin/docs/docs.go
+
+.PHONY: vhs
+vhs:
+	cd demo && vhs mounted.tape && vhs unmounted.tape

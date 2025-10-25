@@ -1,0 +1,78 @@
+name: vhs
+permissions:
+  contents: read
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  vhs:
+    runs-on: ubuntu-24.04
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '1.25.3'
+          cache: false
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Start minikube
+        id: minikube
+        uses: medyagh/setup-minikube@e3c7f79eb1e997eabccc536a6cf318a2b0fe19d9 # v0.0.20
+        with:
+          cpus: 4
+          memory: 6000m
+
+      - name: Create test PVCs and PODs
+        run: kubectl apply -f test
+
+      - name: Install SSHFS
+        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
+        with:
+          packages: sshfs openssh-client libfuse3-3
+          version: ${{ runner.arch }}-1.0
+
+      - name: Build pv-mounter
+        run: make bin
+
+      - name: Create mountpoint
+        run: mkdir foo
+
+      - name: Wait for PVCs to be ready
+        run: |
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-1 --timeout=120s
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-3 --timeout=120s
+
+      - name: Install VHS
+        run: |
+          wget https://github.com/charmbracelet/vhs/releases/download/v0.8.0/vhs_0.8.0_amd64.deb
+          sudo dpkg -i vhs_0.8.0_amd64.deb
+
+      - name: Run VHS demos
+        run: make vhs
+
+      - name: Upload demo artifacts
+        uses: actions/upload-artifact@ea165f2bbf09f4803ce3ea000a8f1b3e63d8c813 # v4.5.0
+        with:
+          name: vhs-demos
+          path: |
+            mounted.gif
+            unmounted.gif

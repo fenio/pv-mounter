@@ -64,7 +64,7 @@ jobs:
       - name: Install VHS dependencies
         uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
         with:
-          packages: ffmpeg
+          packages: ffmpeg ttyd
           version: ${{ runner.arch }}-vhs-1.0
 
       - name: Install VHS

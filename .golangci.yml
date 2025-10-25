@@ -1,0 +1,137 @@
+version: 2
+
+# golangci-lint configuration for pv-mounter
+# Kubernetes kubectl plugin for mounting PVs via SSHFS
+
+run:
+  timeout: 5m
+  go: '1.25'
+  tests: true
+
+output:
+  format: colored-line-number
+
+linters:
+  enable:
+    # Default recommended linters
+    - errcheck        # Check for unchecked errors
+    - govet           # Vet examines Go source code
+    - ineffassign     # Detect ineffectual assignments
+    - staticcheck     # Advanced Go linter
+    - unused          # Check for unused constants, variables, functions
+    
+    # Code quality
+    - gocyclo         # Check function complexity
+    - misspell        # Find misspelled words in comments
+    - revive          # Fast, configurable, extensible Go linter
+    - unconvert       # Remove unnecessary type conversions
+    - unparam         # Find unused function parameters
+    
+    # Error handling (critical for kubectl plugins)
+    - errorlint       # Find misuses of errors (e.g., %v vs %w)
+    
+    # Security (important for kubectl plugins with SSH/subprocess)
+    - gosec           # Security issues
+    
+    # Best practices
+    - bodyclose       # Check HTTP response bodies are closed
+    - noctx           # Find http requests without context
+    - gocritic        # Opinionated Go linter
+    - copyloopvar     # Detect loop variable copies
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+  
+  govet:
+    settings:
+      shadow:
+        strict: true
+  
+  gocyclo:
+    min-complexity: 15  # Reasonable for Kubernetes API complexity
+  
+  errorlint:
+    errorf: true        # Require %w for error wrapping
+    asserts: true
+    comparison: true
+  
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+        disabled: true   # Not required for kubectl plugins
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+  
+  gosec:
+    excludes:
+      - G204  # Subprocess with variable - needed for kubectl/sshfs/ssh
+      - G304  # File path from variable - needed for mount paths/kubeconfig
+      - G306  # File permissions - temp SSH keys need specific perms
+  
+  gocritic:
+    enabled-checks:
+      - appendCombine
+      - boolExprSimplify
+      - builtinShadow
+      - commentFormatting
+      - dupImport
+      - emptyFallthrough
+      - emptyStringTest
+      - hexLiteral
+      - methodExprCall
+      - rangeValCopy
+      - singleCaseSwitch
+      - typeAssertChain
+      - typeSwitchVar
+      - underef
+      - unlambda
+      - unslice
+    disabled-checks:
+      - ifElseChain  # Sometimes clearer than switch
+
+formatters:
+  enable:
+    - gofmt           # Check if code is formatted
+    - goimports       # Check import ordering and formatting
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  
+  exclude-rules:
+    # Exclude some linters from test files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - unparam
+        - gocyclo
+    
+    # Exclude error wrapping check for test files
+    - linters:
+        - errorlint
+      text: "non-wrapping format verb for fmt.Errorf"
+      path: _test\.go

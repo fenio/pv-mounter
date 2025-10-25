@@ -218,6 +218,10 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
+	if err := waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, debug); err != nil {
+		return err
+	}
+
 	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, true)
 }
 
@@ -318,6 +322,52 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 	}
 	fmt.Printf("Successfully added ephemeral container %s to pod %s\n", ephemeralContainerName, podName)
 	return nil
+}
+
+func waitForEphemeralContainerReady(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string, debug bool) error {
+	timeout := 60 * time.Second
+	deadline := time.Now().Add(timeout)
+
+	if debug {
+		fmt.Printf("Waiting for ephemeral container to be ready in pod %s...\n", podName)
+	}
+
+	return wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		if len(pod.Status.EphemeralContainerStatuses) == 0 {
+			if debug && time.Now().Add(5*time.Second).After(deadline) {
+				fmt.Printf("Still waiting for ephemeral container status to appear...\n")
+			}
+			return false, nil
+		}
+
+		ephemeralStatus := pod.Status.EphemeralContainerStatuses[len(pod.Status.EphemeralContainerStatuses)-1]
+
+		if ephemeralStatus.State.Running != nil {
+			if debug {
+				fmt.Printf("Ephemeral container %s is running\n", ephemeralStatus.Name)
+			}
+			time.Sleep(3 * time.Second)
+			return true, nil
+		}
+
+		if ephemeralStatus.State.Waiting != nil {
+			if debug {
+				fmt.Printf("Ephemeral container %s is waiting: %s\n", ephemeralStatus.Name, ephemeralStatus.State.Waiting.Reason)
+			}
+			return false, nil
+		}
+
+		if ephemeralStatus.State.Terminated != nil {
+			return false, fmt.Errorf("ephemeral container terminated: %s", ephemeralStatus.State.Terminated.Reason)
+		}
+
+		return false, nil
+	})
 }
 
 func getPodIP(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) (string, error) {
@@ -491,6 +541,50 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 	if sshPort < 0 || sshPort > 65535 {
 		sshPort = DefaultSSHPort
 	}
+
+	container := buildContainer(publicKey, role, sshPort, needsRoot, image, cpuLimit)
+	labels := buildPodLabels(pvcName, port, originalPodName)
+	imagePullSecrets := buildImagePullSecrets(imageSecret)
+	podSecurityContext := buildPodSecurityContext(needsRoot)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   podName,
+			Labels: labels,
+		},
+		Spec: corev1.PodSpec{
+			Containers:       []corev1.Container{container},
+			SecurityContext:  podSecurityContext,
+			ImagePullSecrets: imagePullSecrets,
+		},
+	}
+
+	if role != "proxy" {
+		attachPVCToPod(pod, pvcName)
+	}
+
+	return pod
+}
+
+func buildContainer(publicKey, role string, sshPort int, needsRoot bool, image, cpuLimit string) corev1.Container {
+	envVars := buildEnvVars(publicKey, role, sshPort, needsRoot)
+	imageToUse := selectImage(image, needsRoot)
+	resources := buildResourceRequirements(cpuLimit)
+
+	return corev1.Container{
+		Name:            "volume-exposer",
+		Image:           imageToUse,
+		ImagePullPolicy: corev1.PullAlways,
+		Ports: []corev1.ContainerPort{
+			{ContainerPort: int32(sshPort)}, // #nosec G115 -- sshPort is validated to be within valid port range (1024-65535)
+		},
+		Env:             envVars,
+		SecurityContext: getSecurityContext(needsRoot),
+		Resources:       resources,
+	}
+}
+
+func buildEnvVars(publicKey, role string, sshPort int, needsRoot bool) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
 		{Name: "SSH_PUBLIC_KEY", Value: publicKey},
 		{Name: "SSH_PORT", Value: fmt.Sprintf("%d", sshPort)},
@@ -502,46 +596,38 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 			Value: role,
 		})
 	}
-	imageToUse := image
-	if imageToUse == "" {
-		if needsRoot {
-			imageToUse = PrivilegedImage
-		} else {
-			imageToUse = Image
-		}
+	return envVars
+}
+
+func selectImage(image string, needsRoot bool) string {
+	if image != "" {
+		return image
 	}
-	securityContext := getSecurityContext(needsRoot)
-	runAsNonRoot := !needsRoot
-	runAsUser := DefaultUserGroup
-	runAsGroup := DefaultUserGroup
 	if needsRoot {
-		runAsUser = 0
-		runAsGroup = 0
+		return PrivilegedImage
 	}
-	container := corev1.Container{
-		Name:            "volume-exposer",
-		Image:           imageToUse,
-		ImagePullPolicy: corev1.PullAlways,
-		Ports: []corev1.ContainerPort{
-			{ContainerPort: int32(sshPort)}, // #nosec G115 -- sshPort is validated to be within valid port range (1024-65535)
+	return Image
+}
+
+func buildResourceRequirements(cpuLimit string) corev1.ResourceRequirements {
+	resources := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:              resource.MustParse(CPURequest),
+			corev1.ResourceMemory:           resource.MustParse(MemoryRequest),
+			corev1.ResourceEphemeralStorage: resource.MustParse(EphemeralStorageRequest),
 		},
-		Env:             envVars,
-		SecurityContext: securityContext,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:              resource.MustParse(CPURequest),
-				corev1.ResourceMemory:           resource.MustParse(MemoryRequest),
-				corev1.ResourceEphemeralStorage: resource.MustParse(EphemeralStorageRequest),
-			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory:           resource.MustParse(MemoryLimit),
-				corev1.ResourceEphemeralStorage: resource.MustParse(EphemeralStorageLimit),
-			},
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory:           resource.MustParse(MemoryLimit),
+			corev1.ResourceEphemeralStorage: resource.MustParse(EphemeralStorageLimit),
 		},
 	}
 	if cpuLimit != "" {
-		container.Resources.Limits[corev1.ResourceCPU] = resource.MustParse(cpuLimit)
+		resources.Limits[corev1.ResourceCPU] = resource.MustParse(cpuLimit)
 	}
+	return resources
+}
+
+func buildPodLabels(pvcName string, port int, originalPodName string) map[string]string {
 	labels := map[string]string{
 		"app":        "volume-exposer",
 		"pvcName":    pvcName,
@@ -550,42 +636,45 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 	if originalPodName != "" {
 		labels["originalPodName"] = originalPodName
 	}
-	imagePullSecrets := []corev1.LocalObjectReference{}
-	if imageSecret != "" {
-		imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: imageSecret})
+	return labels
+}
+
+func buildImagePullSecrets(imageSecret string) []corev1.LocalObjectReference {
+	if imageSecret == "" {
+		return []corev1.LocalObjectReference{}
 	}
-	podSpec := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   podName,
-			Labels: labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{container},
-			SecurityContext: &corev1.PodSecurityContext{
-				RunAsNonRoot: &runAsNonRoot,
-				RunAsUser:    &runAsUser,
-				RunAsGroup:   &runAsGroup,
-			},
-			ImagePullSecrets: imagePullSecrets,
-		},
+	return []corev1.LocalObjectReference{{Name: imageSecret}}
+}
+
+func buildPodSecurityContext(needsRoot bool) *corev1.PodSecurityContext {
+	runAsNonRoot := !needsRoot
+	runAsUser := DefaultUserGroup
+	runAsGroup := DefaultUserGroup
+	if needsRoot {
+		runAsUser = 0
+		runAsGroup = 0
 	}
-	if role != "proxy" {
-		container.VolumeMounts = []corev1.VolumeMount{
-			{MountPath: "/volume", Name: "my-pvc"},
-		}
-		podSpec.Spec.Volumes = []corev1.Volume{
-			{
-				Name: "my-pvc",
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: pvcName,
-					},
+	return &corev1.PodSecurityContext{
+		RunAsNonRoot: &runAsNonRoot,
+		RunAsUser:    &runAsUser,
+		RunAsGroup:   &runAsGroup,
+	}
+}
+
+func attachPVCToPod(pod *corev1.Pod, pvcName string) {
+	pod.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
+		{MountPath: "/volume", Name: "my-pvc"},
+	}
+	pod.Spec.Volumes = []corev1.Volume{
+		{
+			Name: "my-pvc",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcName,
 				},
 			},
-		}
-		podSpec.Spec.Containers[0] = container
+		},
 	}
-	return podSpec
 }
 
 func getPVCVolumeName(pod *corev1.Pod) (string, error) {

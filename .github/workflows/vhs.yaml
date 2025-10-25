@@ -68,6 +68,9 @@ jobs:
           wget https://github.com/charmbracelet/vhs/releases/download/v0.10.0/vhs_0.10.0_amd64.deb
           sudo dpkg -i vhs_0.10.0_amd64.deb
 
+      - name: Install zsh
+        run: sudo apt-get install -y zsh
+
       - name: Run VHS demos
         run: make vhs
 

@@ -48,7 +48,7 @@ func TestValidateMountPoint_FileInsteadOfDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temporary file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() { _ = os.Remove(tempFile.Name()) }()
 
 	// Call the function
 	err = validateMountPoint(tempFile.Name())
@@ -109,7 +109,7 @@ func TestGetPodIP(t *testing.T) {
 	t.Run("API error", func(t *testing.T) {
 		// Create a fake clientset that will return an error
 		clientset := fake.NewSimpleClientset()
-		clientset.PrependReactor("get", "pods", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		clientset.PrependReactor("get", "pods", func(_ k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 			return true, nil, fmt.Errorf("API error")
 		})
 
@@ -257,21 +257,22 @@ func TestCheckPVCUsage(t *testing.T) {
 }
 
 func TestCleanupPortForward(t *testing.T) {
-	t.Run("Nil command", func(t *testing.T) {
+	t.Run("Nil command", func(_ *testing.T) {
 		cleanupPortForward(nil)
 	})
 
 	t.Run("Command with process", func(t *testing.T) {
-		cmd := exec.Command("sleep", "10")
-		cmd.Start()
+		ctx := context.Background()
+		cmd := exec.CommandContext(ctx, "sleep", "10")
+		_ = cmd.Start()
 		if cmd.Process == nil {
 			t.Fatal("Expected process to be started")
 		}
 		cleanupPortForward(cmd)
-		cmd.Wait()
+		_ = cmd.Wait()
 	})
 
-	t.Run("Command without process", func(t *testing.T) {
+	t.Run("Command without process", func(_ *testing.T) {
 		cmd := &exec.Cmd{}
 		cleanupPortForward(cmd)
 	})

@@ -1,3 +1,4 @@
+// Package main is the entry point for the pv-mounter kubectl plugin.
 package main
 
 import (

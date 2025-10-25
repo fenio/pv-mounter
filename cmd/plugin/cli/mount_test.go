@@ -50,8 +50,8 @@ func TestMountCmdEnvironmentVariables(t *testing.T) {
 	cmd := mountCmd()
 
 	t.Run("NEEDS_ROOT environment variable", func(t *testing.T) {
-		os.Setenv("NEEDS_ROOT", "true")
-		defer os.Unsetenv("NEEDS_ROOT")
+		_ = os.Setenv("NEEDS_ROOT", "true")
+		defer func() { _ = os.Unsetenv("NEEDS_ROOT") }()
 
 		args := []string{"default", "test-pvc", "/tmp/test"}
 		cmd.SetArgs(args)
@@ -62,8 +62,8 @@ func TestMountCmdEnvironmentVariables(t *testing.T) {
 	})
 
 	t.Run("DEBUG environment variable", func(t *testing.T) {
-		os.Setenv("DEBUG", "true")
-		defer os.Unsetenv("DEBUG")
+		_ = os.Setenv("DEBUG", "true")
+		defer func() { _ = os.Unsetenv("DEBUG") }()
 
 		args := []string{"default", "test-pvc", "/tmp/test"}
 		cmd.SetArgs(args)
@@ -74,8 +74,8 @@ func TestMountCmdEnvironmentVariables(t *testing.T) {
 	})
 
 	t.Run("IMAGE environment variable", func(t *testing.T) {
-		os.Setenv("IMAGE", "custom-image:latest")
-		defer os.Unsetenv("IMAGE")
+		_ = os.Setenv("IMAGE", "custom-image:latest")
+		defer func() { _ = os.Unsetenv("IMAGE") }()
 
 		args := []string{"default", "test-pvc", "/tmp/test"}
 		cmd.SetArgs(args)
@@ -109,8 +109,8 @@ func TestMountCmdArgValidation(t *testing.T) {
 func TestMountCmdInvalidEnvVars(t *testing.T) {
 	t.Run("Invalid NEEDS_ROOT value", func(t *testing.T) {
 		cmd := mountCmd()
-		os.Setenv("NEEDS_ROOT", "invalid-bool")
-		defer os.Unsetenv("NEEDS_ROOT")
+		_ = os.Setenv("NEEDS_ROOT", "invalid-bool")
+		defer func() { _ = os.Unsetenv("NEEDS_ROOT") }()
 
 		cmd.SetArgs([]string{"default", "test-pvc", "/tmp/test"})
 		err := cmd.Execute()
@@ -124,8 +124,8 @@ func TestMountCmdInvalidEnvVars(t *testing.T) {
 
 	t.Run("Invalid DEBUG value", func(t *testing.T) {
 		cmd := mountCmd()
-		os.Setenv("DEBUG", "not-a-boolean")
-		defer os.Unsetenv("DEBUG")
+		_ = os.Setenv("DEBUG", "not-a-boolean")
+		defer func() { _ = os.Unsetenv("DEBUG") }()
 
 		cmd.SetArgs([]string{"default", "test-pvc", "/tmp/test"})
 		err := cmd.Execute()
@@ -141,17 +141,17 @@ func TestMountCmdInvalidEnvVars(t *testing.T) {
 func TestMountCmdAllEnvVars(t *testing.T) {
 	t.Run("All environment variables set", func(t *testing.T) {
 		cmd := mountCmd()
-		os.Setenv("NEEDS_ROOT", "true")
-		os.Setenv("DEBUG", "false")
-		os.Setenv("IMAGE", "custom:latest")
-		os.Setenv("IMAGE_SECRET", "my-secret")
-		os.Setenv("CPU_LIMIT", "500m")
+		_ = os.Setenv("NEEDS_ROOT", "true")
+		_ = os.Setenv("DEBUG", "false")
+		_ = os.Setenv("IMAGE", "custom:latest")
+		_ = os.Setenv("IMAGE_SECRET", "my-secret")
+		_ = os.Setenv("CPU_LIMIT", "500m")
 		defer func() {
-			os.Unsetenv("NEEDS_ROOT")
-			os.Unsetenv("DEBUG")
-			os.Unsetenv("IMAGE")
-			os.Unsetenv("IMAGE_SECRET")
-			os.Unsetenv("CPU_LIMIT")
+			_ = os.Unsetenv("NEEDS_ROOT")
+			_ = os.Unsetenv("DEBUG")
+			_ = os.Unsetenv("IMAGE")
+			_ = os.Unsetenv("IMAGE_SECRET")
+			_ = os.Unsetenv("CPU_LIMIT")
 		}()
 
 		args := []string{"default", "test-pvc", "/tmp/test"}
@@ -166,8 +166,8 @@ func TestMountCmdAllEnvVars(t *testing.T) {
 func TestMountCmdFlagPrecedence(t *testing.T) {
 	t.Run("Flag overrides environment variable", func(t *testing.T) {
 		cmd := mountCmd()
-		os.Setenv("IMAGE", "env-image:latest")
-		defer os.Unsetenv("IMAGE")
+		_ = os.Setenv("IMAGE", "env-image:latest")
+		defer func() { _ = os.Unsetenv("IMAGE") }()
 
 		args := []string{"--image", "flag-image:latest", "default", "test-pvc", "/tmp/test"}
 		cmd.SetArgs(args)

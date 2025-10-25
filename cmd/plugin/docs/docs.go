@@ -1,3 +1,4 @@
+// Package main generates CLI documentation for pv-mounter.
 package main
 
 import (
@@ -9,9 +10,8 @@ import (
 )
 
 func main() {
-	// Define output directory for documentation
 	outputDir := "./docs"
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
 		log.Fatalf("Failed to create docs directory: %v", err)
 	}
 

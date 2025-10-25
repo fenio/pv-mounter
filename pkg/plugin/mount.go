@@ -3,9 +3,10 @@ package plugin
 import (
 	"context"
 	"crypto/elliptic"
+	crand "crypto/rand"
 	"encoding/json"
 	"fmt"
-	"math/rand/v2"
+	"math/big"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -22,21 +23,33 @@ import (
 )
 
 const (
+	// ImageVersion specifies the container image version for volume-exposer
 	ImageVersion = "e4782f31d6"
 
-	Image                  = "bfenski/volume-exposer:" + ImageVersion
-	PrivilegedImage        = "bfenski/volume-exposer-privileged:" + ImageVersion
+	// Image is the default non-privileged container image
+	Image = "bfenski/volume-exposer:" + ImageVersion
+	// PrivilegedImage is the privileged container image for root access
+	PrivilegedImage = "bfenski/volume-exposer-privileged:" + ImageVersion
+	// DefaultUserGroup is the default user and group ID
 	DefaultUserGroup int64 = 2137
-	DefaultSSHPort   int   = 2137
-	ProxySSHPort     int   = 6666
+	// DefaultSSHPort is the default SSH port for the SSH server
+	DefaultSSHPort int = 2137
+	// ProxySSHPort is the SSH port used by proxy pods
+	ProxySSHPort int = 6666
 
-	CPURequest              = "10m"
-	MemoryRequest           = "50Mi"
-	MemoryLimit             = "100Mi"
+	// CPURequest is the default CPU request for containers
+	CPURequest = "10m"
+	// MemoryRequest is the default memory request
+	MemoryRequest = "50Mi"
+	// MemoryLimit is the default memory limit
+	MemoryLimit = "100Mi"
+	// EphemeralStorageRequest is the default ephemeral storage request
 	EphemeralStorageRequest = "1Mi"
-	EphemeralStorageLimit   = "2Mi"
+	// EphemeralStorageLimit is the default ephemeral storage limit
+	EphemeralStorageLimit = "2Mi"
 )
 
+// DefaultID specifies the default user and group ID for the SSH user
 var DefaultID int64 = 2137
 
 var (
@@ -61,7 +74,7 @@ func cleanupTempKeyFiles() {
 	tempKeyFilesMu.Lock()
 	defer tempKeyFilesMu.Unlock()
 	for file := range tempKeyFiles {
-		os.Remove(file)
+		_ = os.Remove(file)
 	}
 }
 
@@ -77,6 +90,7 @@ func unregisterTempKeyFile(path string) {
 	delete(tempKeyFiles, path)
 }
 
+// Mount establishes an SSHFS connection to mount a PVC to a local directory.
 func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
 	checkSSHFS()
 	if err := ValidateKubernetesName(namespace, "namespace"); err != nil {
@@ -141,12 +155,12 @@ func setupPodAndWait(ctx context.Context, clientset *kubernetes.Clientset, names
 	return podName, port, nil
 }
 
-func setupPortForwardAndMount(namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot bool) error {
-	pfCmd, err := setupPortForwarding(namespace, podName, port)
+func setupPortForwardAndMount(ctx context.Context, namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot bool) error {
+	pfCmd, err := setupPortForwarding(ctx, namespace, podName, port)
 	if err != nil {
 		return err
 	}
-	if err := mountPVCOverSSH(port, localMountPoint, pvcName, privateKey, needsRoot); err != nil {
+	if err := mountPVCOverSSH(ctx, port, localMountPoint, pvcName, privateKey, needsRoot); err != nil {
 		cleanupPortForward(pfCmd)
 		return err
 	}
@@ -170,7 +184,7 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return setupPortForwardAndMount(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
+	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
 func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
@@ -199,12 +213,12 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return setupPortForwardAndMount(namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
+	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot)
 }
 
 func cleanupPortForward(cmd *exec.Cmd) {
 	if cmd != nil && cmd.Process != nil {
-		cmd.Process.Kill()
+		_ = cmd.Process.Kill()
 	}
 }
 
@@ -341,8 +355,8 @@ func waitForPodReady(ctx context.Context, clientset *kubernetes.Clientset, names
 	})
 }
 
-func setupPortForwarding(namespace, podName string, port int) (*exec.Cmd, error) {
-	cmd := exec.Command("kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:%d", port, DefaultSSHPort), "-n", namespace)
+func setupPortForwarding(ctx context.Context, namespace, podName string, port int) (*exec.Cmd, error) {
+	cmd := exec.CommandContext(ctx, "kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:%d", port, DefaultSSHPort), "-n", namespace) // #nosec G204 -- namespace and podName are validated Kubernetes resource names
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -353,6 +367,7 @@ func setupPortForwarding(namespace, podName string, port int) (*exec.Cmd, error)
 }
 
 func mountPVCOverSSH(
+	ctx context.Context,
 	port int,
 	localMountPoint, pvcName, privateKey string,
 	needsRoot bool) error {
@@ -364,7 +379,7 @@ func mountPVCOverSSH(
 	keyFilePath := tmpFile.Name()
 	registerTempKeyFile(keyFilePath)
 	defer func() {
-		os.Remove(keyFilePath)
+		_ = os.Remove(keyFilePath)
 		unregisterTempKeyFile(keyFilePath)
 	}()
 
@@ -384,7 +399,7 @@ func mountPVCOverSSH(
 		sshUser = "root"
 	}
 
-	sshfsCmd := exec.Command(
+	sshfsCmd := exec.CommandContext(ctx, // #nosec G204 -- keyFilePath is a securely created temp file, localMountPoint is user-provided
 		"sshfs",
 		"-o", fmt.Sprintf("IdentityFile=%s", keyFilePath),
 		"-o", "StrictHostKeyChecking=no",
@@ -413,11 +428,18 @@ func generatePodNameAndPort(role string) (string, int) {
 		baseName = "volume-exposer-proxy"
 	}
 	podName := fmt.Sprintf("%s-%s", baseName, suffix)
-	port := rand.IntN(64511) + 1024
+	portBig, err := crand.Int(crand.Reader, big.NewInt(64511))
+	if err != nil {
+		return podName, 1024
+	}
+	port := int(portBig.Int64()) + 1024
 	return podName, port
 }
 
 func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) *corev1.Pod {
+	if sshPort < 0 || sshPort > 65535 {
+		sshPort = DefaultSSHPort
+	}
 	envVars := []corev1.EnvVar{
 		{Name: "SSH_PUBLIC_KEY", Value: publicKey},
 		{Name: "SSH_PORT", Value: fmt.Sprintf("%d", sshPort)},
@@ -439,8 +461,8 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 	}
 	securityContext := getSecurityContext(needsRoot)
 	runAsNonRoot := !needsRoot
-	runAsUser := int64(DefaultUserGroup)
-	runAsGroup := int64(DefaultUserGroup)
+	runAsUser := DefaultUserGroup
+	runAsGroup := DefaultUserGroup
 	if needsRoot {
 		runAsUser = 0
 		runAsGroup = 0
@@ -450,7 +472,7 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 		Image:           imageToUse,
 		ImagePullPolicy: corev1.PullAlways,
 		Ports: []corev1.ContainerPort{
-			{ContainerPort: int32(sshPort)},
+			{ContainerPort: int32(sshPort)}, // #nosec G115 -- sshPort is validated to be within valid port range (1024-65535)
 		},
 		Env:             envVars,
 		SecurityContext: securityContext,
@@ -541,17 +563,16 @@ func getSecurityContext(needsRoot bool) *corev1.SecurityContext {
 			},
 			SeccompProfile: &seccompProfileRuntimeDefault,
 		}
-	} else {
-		return &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &allowPrivilegeEscalationFalse,
-			ReadOnlyRootFilesystem:   &readOnlyRootFilesystemTrue,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			SeccompProfile: &seccompProfileRuntimeDefault,
-			RunAsUser:      &DefaultID,
-			RunAsGroup:     &DefaultID,
-			RunAsNonRoot:   &runAsNonRootTrue,
-		}
+	}
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &allowPrivilegeEscalationFalse,
+		ReadOnlyRootFilesystem:   &readOnlyRootFilesystemTrue,
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		SeccompProfile: &seccompProfileRuntimeDefault,
+		RunAsUser:      &DefaultID,
+		RunAsGroup:     &DefaultID,
+		RunAsNonRoot:   &runAsNonRootTrue,
 	}
 }

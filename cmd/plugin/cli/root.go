@@ -10,9 +10,11 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
+// KubernetesConfigFlags holds the Kubernetes client configuration flags
 var KubernetesConfigFlags *genericclioptions.ConfigFlags
 var rootCmd *cobra.Command
 
+// RootCmd returns the root cobra command for the pv-mounter CLI
 func RootCmd() *cobra.Command {
 	if rootCmd != nil {
 		return rootCmd
@@ -60,6 +62,7 @@ Use "kubectl pv-mounter [command] --help" for more information about a command.
 	return rootCmd
 }
 
+// InitAndExecute initializes the CLI with Kubernetes config flags and executes the root command
 func InitAndExecute() {
 	KubernetesConfigFlags = genericclioptions.NewConfigFlags(true)
 	KubernetesConfigFlags.AddFlags(RootCmd().PersistentFlags())

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -222,6 +223,42 @@ func cleanupPortForward(cmd *exec.Cmd) {
 	}
 }
 
+func waitForSSHReady(ctx context.Context, port int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if time.Now().After(deadline) {
+				return fmt.Errorf("timeout waiting for SSH daemon to become ready on port %d", port)
+			}
+
+			dialer := &net.Dialer{Timeout: time.Second}
+			conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", port))
+			if err != nil {
+				continue
+			}
+
+			buf := make([]byte, 4)
+			if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+				_ = conn.Close()
+				continue
+			}
+
+			n, err := conn.Read(buf)
+			_ = conn.Close()
+
+			if err == nil && n >= 3 && string(buf[:3]) == "SSH" {
+				return nil
+			}
+		}
+	}
+}
+
 func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error {
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
@@ -364,7 +401,12 @@ func setupPortForwarding(ctx context.Context, namespace, podName string, port in
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start port-forward: %w", err)
 	}
-	time.Sleep(5 * time.Second)
+
+	if err := waitForSSHReady(ctx, port, 30*time.Second); err != nil {
+		cleanupPortForward(cmd)
+		return nil, fmt.Errorf("failed to establish SSH connection: %w", err)
+	}
+
 	if !debug {
 		fmt.Printf("Forwarding from 127.0.0.1:%d -> %d\n", port, DefaultSSHPort)
 	}

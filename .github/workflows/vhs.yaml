@@ -69,8 +69,8 @@ jobs:
 
       - name: Install VHS
         run: |
-          wget https://github.com/charmbracelet/vhs/releases/download/v0.8.0/vhs_0.8.0_amd64.deb
-          sudo dpkg -i vhs_0.8.0_amd64.deb
+          wget https://github.com/charmbracelet/vhs/releases/download/v0.10.0/vhs_0.10.0_amd64.deb
+          sudo dpkg -i vhs_0.10.0_amd64.deb
 
       - name: Run VHS demos
         run: make vhs

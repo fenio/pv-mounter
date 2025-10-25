@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -155,8 +156,12 @@ func setupPodAndWait(ctx context.Context, clientset *kubernetes.Clientset, names
 	return podName, port, nil
 }
 
-func setupPortForwardAndMount(ctx context.Context, namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot, debug bool) error {
-	pfCmd, err := setupPortForwarding(ctx, namespace, podName, port, debug)
+func setupPortForwardAndMount(ctx context.Context, namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot, debug bool, isProxyMode bool) error {
+	timeout := 30 * time.Second
+	if isProxyMode {
+		timeout = 60 * time.Second
+	}
+	pfCmd, err := setupPortForwarding(ctx, namespace, podName, port, debug, timeout)
 	if err != nil {
 		return err
 	}
@@ -184,7 +189,7 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug)
+	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, false)
 }
 
 func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
@@ -213,12 +218,48 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug)
+	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, true)
 }
 
 func cleanupPortForward(cmd *exec.Cmd) {
 	if cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Kill()
+	}
+}
+
+func waitForSSHReady(ctx context.Context, port int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if time.Now().After(deadline) {
+				return fmt.Errorf("timeout waiting for SSH daemon to become ready on port %d", port)
+			}
+
+			dialer := &net.Dialer{Timeout: time.Second}
+			conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", port))
+			if err != nil {
+				continue
+			}
+
+			buf := make([]byte, 4)
+			if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+				_ = conn.Close()
+				continue
+			}
+
+			n, err := conn.Read(buf)
+			_ = conn.Close()
+
+			if err == nil && n >= 3 && string(buf[:3]) == "SSH" {
+				return nil
+			}
+		}
 	}
 }
 
@@ -355,7 +396,7 @@ func waitForPodReady(ctx context.Context, clientset *kubernetes.Clientset, names
 	})
 }
 
-func setupPortForwarding(ctx context.Context, namespace, podName string, port int, debug bool) (*exec.Cmd, error) {
+func setupPortForwarding(ctx context.Context, namespace, podName string, port int, debug bool, timeout time.Duration) (*exec.Cmd, error) {
 	cmd := exec.CommandContext(ctx, "kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:%d", port, DefaultSSHPort), "-n", namespace) // #nosec G204 -- namespace and podName are validated Kubernetes resource names
 	if debug {
 		cmd.Stdout = os.Stdout
@@ -364,7 +405,12 @@ func setupPortForwarding(ctx context.Context, namespace, podName string, port in
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start port-forward: %w", err)
 	}
-	time.Sleep(5 * time.Second)
+
+	if err := waitForSSHReady(ctx, port, timeout); err != nil {
+		cleanupPortForward(cmd)
+		return nil, fmt.Errorf("failed to establish SSH connection: %w", err)
+	}
+
 	if !debug {
 		fmt.Printf("Forwarding from 127.0.0.1:%d -> %d\n", port, DefaultSSHPort)
 	}

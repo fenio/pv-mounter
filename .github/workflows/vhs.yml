@@ -1,0 +1,101 @@
+name: Generate Demo GIFs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo/**/*.tape'
+      - 'cmd/**'
+      - 'pkg/**'
+  pull_request:
+    paths:
+      - 'demo/**/*.tape'
+      - 'cmd/**'
+      - 'pkg/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-gifs:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: 1.25.3
+
+      - name: Build pv-mounter
+        run: make bin
+
+      - name: Setup Kind cluster
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+
+      - name: Create test PVCs and pods
+        run: |
+          # Create namespace
+          kubectl create namespace demo
+          
+          # Apply test resources
+          kubectl apply -f test/1-pvc.yaml -n demo
+          kubectl apply -f test/2-pvc.yaml -n demo
+          
+          # Wait for PVCs to be bound
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-1 -n demo --timeout=60s || true
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-2 -n demo --timeout=60s || true
+          
+          # Create mount point
+          mkdir -p foo
+          
+          # Install pv-mounter to kubectl plugins
+          mkdir -p ~/.local/bin
+          cp bin/pv-mounter ~/.local/bin/kubectl-pv_mounter
+          chmod +x ~/.local/bin/kubectl-pv_mounter
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install SSHFS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sshfs
+
+      - name: Generate unmounted demo
+        uses: charmbracelet/vhs-action@f1dc43c0fe8c9b87b3e762247cf15dee7d9d5515 # v2.2.0
+        with:
+          path: demo/unmounted.tape
+
+      - name: Generate mounted demo
+        uses: charmbracelet/vhs-action@f1dc43c0fe8c9b87b3e762247cf15dee7d9d5515 # v2.2.0
+        with:
+          path: demo/mounted.tape
+
+      - name: Upload GIF artifacts
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: demo-gifs
+          path: '*.gif'
+          retention-days: 90
+
+      - name: Commit updated GIFs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add *.gif
+          if git diff --quiet --staged; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update demo GIFs [skip ci]"
+            git push
+          fi

@@ -1,0 +1,1227 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>plugin: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/fenio/pv-mounter/pkg/plugin/clean.go (23.6%)</option>
+				
+				<option value="file1">github.com/fenio/pv-mounter/pkg/plugin/ephemeral.go (32.7%)</option>
+				
+				<option value="file2">github.com/fenio/pv-mounter/pkg/plugin/mount.go (34.5%)</option>
+				
+				<option value="file3">github.com/fenio/pv-mounter/pkg/plugin/mount_rwo.go (0.0%)</option>
+				
+				<option value="file4">github.com/fenio/pv-mounter/pkg/plugin/mount_rwx.go (0.0%)</option>
+				
+				<option value="file5">github.com/fenio/pv-mounter/pkg/plugin/pod_setup.go (79.5%)</option>
+				
+				<option value="file6">github.com/fenio/pv-mounter/pkg/plugin/ssh_mount.go (34.2%)</option>
+				
+				<option value="file7">github.com/fenio/pv-mounter/pkg/plugin/utils.go (56.6%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">// Package plugin implements the core functionality for mounting and cleaning PVCs.
+package plugin
+
+import (
+        "context"
+        "fmt"
+        "os"
+        "os/exec"
+        "runtime"
+
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        "k8s.io/client-go/kubernetes"
+)
+
+// Clean unmounts a PVC and removes associated resources including proxy pods and port-forwarding.
+func Clean(ctx context.Context, namespace, pvcName, localMountPoint string) error <span class="cov0" title="0">{
+        if err := ValidateKubernetesName(namespace, "namespace"); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if err := ValidateKubernetesName(pvcName, "pvc-name"); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">var umountCmd *exec.Cmd
+        if runtime.GOOS == "darwin" </span><span class="cov0" title="0">{
+                umountCmd = exec.CommandContext(ctx, "umount", localMountPoint)
+        }</span> else<span class="cov0" title="0"> {
+                umountCmd = exec.CommandContext(ctx, "fusermount", "-u", localMountPoint)
+        }</span>
+        <span class="cov0" title="0">umountCmd.Stdout = os.Stdout
+        umountCmd.Stderr = os.Stderr
+        if err := umountCmd.Run(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to unmount SSHFS: %w", err)
+        }</span>
+        <span class="cov0" title="0">fmt.Printf("Unmounted %s successfully\n", localMountPoint)
+
+        // Build Kubernetes client
+        clientset, err := BuildKubeClient()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // List the pod with the PVC name label
+        <span class="cov0" title="0">podClient := clientset.CoreV1().Pods(namespace)
+        podList, err := podClient.List(ctx, metav1.ListOptions{
+                LabelSelector: fmt.Sprintf("pvcName=%s", pvcName),
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to list pods: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if len(podList.Items) == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("no pod found with PVC name label %s", pvcName)
+        }</span>
+
+        <span class="cov0" title="0">podName := podList.Items[0].Name
+        port := podList.Items[0].Labels["portNumber"]
+
+        pkillCmd := exec.CommandContext(ctx, "pkill", "-f", fmt.Sprintf("kubectl port-forward pod/%s %s:2137", podName, port)) // #nosec G204 -- podName and port are from validated Kubernetes resources
+        pkillCmd.Stdout = os.Stdout
+        pkillCmd.Stderr = os.Stderr
+        if err := pkillCmd.Run(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to kill port-forward process: %w", err)
+        }</span>
+        <span class="cov0" title="0">fmt.Printf("Port-forward process for pod %s killed successfully\n", podName)
+
+        // Check for original pod
+        originalPodName := podList.Items[0].Labels["originalPodName"]
+        if originalPodName != "" </span><span class="cov0" title="0">{
+                err = killProcessInEphemeralContainer(ctx, clientset, namespace, originalPodName)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to kill process in ephemeral container: %w", err)
+                }</span>
+                <span class="cov0" title="0">fmt.Printf("Process in ephemeral container killed successfully in pod %s\n", originalPodName)</span>
+        }
+
+        // Delete the proxy pod
+        <span class="cov0" title="0">err = podClient.Delete(ctx, podName, metav1.DeleteOptions{})
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete pod: %w", err)
+        }</span>
+        <span class="cov0" title="0">fmt.Printf("Proxy pod %s deleted successfully\n", podName)
+
+        return nil</span>
+}
+
+func killProcessInEphemeralContainer(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) error <span class="cov8" title="1">{
+        // Retrieve the existing pod to get the ephemeral container name
+        existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to get existing pod: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if len(existingPod.Spec.EphemeralContainers) == 0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("no ephemeral containers found in pod %s", podName)
+        }</span>
+
+        <span class="cov8" title="1">ephemeralContainerName := existingPod.Spec.EphemeralContainers[0].Name
+        fmt.Printf("Ephemeral container name is %s\n", ephemeralContainerName)
+
+        // Command to kill the process (adjust the process name or ID as necessary)
+        killCmd := []string{"pkill", "-f", "tail"} // Replace "tail" with the actual process name or use a specific PID
+
+        cmd := exec.CommandContext(ctx, "kubectl", append([]string{"exec", podName, "-n", namespace, "-c", ephemeralContainerName, "--"}, killCmd...)...) // #nosec G204 -- podName, namespace, and ephemeralContainerName are from validated Kubernetes resources
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        if err := cmd.Run(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to kill process in container %s of pod %s: %w", ephemeralContainerName, podName, err)
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package plugin
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "time"
+
+        corev1 "k8s.io/api/core/v1"
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        "k8s.io/apimachinery/pkg/types"
+        "k8s.io/apimachinery/pkg/util/wait"
+        "k8s.io/client-go/kubernetes"
+)
+
+// createEphemeralContainer creates an ephemeral container in an existing pod.
+func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error <span class="cov0" title="0">{
+        existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get existing pod: %w", err)
+        }</span>
+        <span class="cov0" title="0">volumeName, err := getPVCVolumeName(existingPod)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">ephemeralContainerName := fmt.Sprintf("volume-exposer-ephemeral-%s", randSeq(5))
+        fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
+
+        ephemeralContainer := buildEphemeralContainerSpec(ephemeralContainerName, volumeName, privateKey, publicKey, proxyPodIP, needsRoot, image)
+
+        if err := patchPodWithEphemeralContainer(ctx, clientset, namespace, podName, ephemeralContainer); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("Successfully added ephemeral container %s to pod %s\n", ephemeralContainerName, podName)
+        return nil</span>
+}
+
+// buildEphemeralContainerSpec creates the specification for an ephemeral container.
+func buildEphemeralContainerSpec(name, volumeName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) corev1.EphemeralContainer <span class="cov8" title="1">{
+        imageToUse := selectImage(image, needsRoot)
+        securityContext := getSecurityContext(needsRoot)
+
+        return corev1.EphemeralContainer{
+                EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+                        Name:            name,
+                        Image:           imageToUse,
+                        ImagePullPolicy: corev1.PullAlways,
+                        Env: []corev1.EnvVar{
+                                {Name: "ROLE", Value: "ephemeral"},
+                                {Name: "SSH_PRIVATE_KEY", Value: privateKey},
+                                {Name: "PROXY_POD_IP", Value: proxyPodIP},
+                                {Name: "SSH_PUBLIC_KEY", Value: publicKey},
+                                {Name: "NEEDS_ROOT", Value: fmt.Sprintf("%v", needsRoot)},
+                        },
+                        SecurityContext: securityContext,
+                        VolumeMounts: []corev1.VolumeMount{
+                                {
+                                        Name:      volumeName,
+                                        MountPath: "/volume",
+                                },
+                        },
+                },
+        }
+}</span>
+
+// patchPodWithEphemeralContainer patches a pod to add an ephemeral container.
+func patchPodWithEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string, ephemeralContainer corev1.EphemeralContainer) error <span class="cov0" title="0">{
+        patchData, err := json.Marshal(map[string]interface{}{
+                "spec": map[string]interface{}{
+                        "ephemeralContainers": []corev1.EphemeralContainer{ephemeralContainer},
+                },
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to marshal ephemeral container spec: %w", err)
+        }</span>
+        <span class="cov0" title="0">_, err = clientset.CoreV1().Pods(namespace).Patch(ctx, podName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}, "ephemeralcontainers")
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to patch pod with ephemeral container: %w", err)
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+// waitForEphemeralContainerReady waits for an ephemeral container to be ready.
+func waitForEphemeralContainerReady(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string, debug bool) error <span class="cov0" title="0">{
+        timeout := 60 * time.Second
+        deadline := time.Now().Add(timeout)
+
+        if debug </span><span class="cov0" title="0">{
+                fmt.Printf("Waiting for ephemeral container to be ready in pod %s...\n", podName)
+        }</span>
+
+        <span class="cov0" title="0">return wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (bool, error) </span><span class="cov0" title="0">{
+                pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+                if err != nil </span><span class="cov0" title="0">{
+                        return false, err
+                }</span>
+
+                <span class="cov0" title="0">return checkEphemeralContainerStatus(pod, deadline, debug)</span>
+        })
+}
+
+// checkEphemeralContainerStatus checks the status of an ephemeral container.
+func checkEphemeralContainerStatus(pod *corev1.Pod, deadline time.Time, debug bool) (bool, error) <span class="cov8" title="1">{
+        if len(pod.Status.EphemeralContainerStatuses) == 0 </span><span class="cov8" title="1">{
+                if debug &amp;&amp; time.Now().Add(5*time.Second).After(deadline) </span><span class="cov0" title="0">{
+                        fmt.Printf("Still waiting for ephemeral container status to appear...\n")
+                }</span>
+                <span class="cov8" title="1">return false, nil</span>
+        }
+
+        <span class="cov8" title="1">ephemeralStatus := pod.Status.EphemeralContainerStatuses[len(pod.Status.EphemeralContainerStatuses)-1]
+
+        if ephemeralStatus.State.Running != nil </span><span class="cov8" title="1">{
+                if debug </span><span class="cov0" title="0">{
+                        fmt.Printf("Ephemeral container %s is running\n", ephemeralStatus.Name)
+                }</span>
+                <span class="cov8" title="1">time.Sleep(3 * time.Second)
+                return true, nil</span>
+        }
+
+        <span class="cov8" title="1">if ephemeralStatus.State.Waiting != nil </span><span class="cov8" title="1">{
+                if debug </span><span class="cov0" title="0">{
+                        fmt.Printf("Ephemeral container %s is waiting: %s\n", ephemeralStatus.Name, ephemeralStatus.State.Waiting.Reason)
+                }</span>
+                <span class="cov8" title="1">return false, nil</span>
+        }
+
+        <span class="cov8" title="1">if ephemeralStatus.State.Terminated != nil </span><span class="cov8" title="1">{
+                return false, fmt.Errorf("ephemeral container terminated: %s", ephemeralStatus.State.Terminated.Reason)
+        }</span>
+
+        <span class="cov0" title="0">return false, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package plugin
+
+import (
+        "context"
+        "crypto/elliptic"
+        crand "crypto/rand"
+        "fmt"
+        "math/big"
+        "os"
+        "os/signal"
+        "sync"
+        "syscall"
+        "time"
+
+        corev1 "k8s.io/api/core/v1"
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        "k8s.io/client-go/kubernetes"
+)
+
+const (
+        // ImageVersion specifies the container image version for volume-exposer
+        ImageVersion = "e4782f31d6"
+
+        // Image is the default non-privileged container image
+        Image = "bfenski/volume-exposer:" + ImageVersion
+        // PrivilegedImage is the privileged container image for root access
+        PrivilegedImage = "bfenski/volume-exposer-privileged:" + ImageVersion
+        // DefaultUserGroup is the default user and group ID
+        DefaultUserGroup int64 = 2137
+        // DefaultSSHPort is the default SSH port for the SSH server
+        DefaultSSHPort int = 2137
+        // ProxySSHPort is the SSH port used by proxy pods
+        ProxySSHPort int = 6666
+
+        // CPURequest is the default CPU request for containers
+        CPURequest = "10m"
+        // MemoryRequest is the default memory request
+        MemoryRequest = "50Mi"
+        // MemoryLimit is the default memory limit
+        MemoryLimit = "100Mi"
+        // EphemeralStorageRequest is the default ephemeral storage request
+        EphemeralStorageRequest = "1Mi"
+        // EphemeralStorageLimit is the default ephemeral storage limit
+        EphemeralStorageLimit = "2Mi"
+)
+
+// DefaultID specifies the default user and group ID for the SSH user
+var DefaultID int64 = 2137
+
+var (
+        cleanupOnce sync.Once
+)
+
+func init() <span class="cov8" title="1">{
+        cleanupOnce.Do(func() </span><span class="cov8" title="1">{
+                sigChan := make(chan os.Signal, 1)
+                signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+                go func() </span><span class="cov8" title="1">{
+                        &lt;-sigChan
+                        cleanupTempKeyFiles()
+                        os.Exit(1)
+                }</span>()
+        })
+}
+
+// mountConfig holds configuration for mounting operations.
+type mountConfig struct {
+        role            string
+        sshPort         int
+        originalPodName string
+}
+
+// Mount establishes an SSHFS connection to mount a PVC to a local directory.
+func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error <span class="cov0" title="0">{
+        checkSSHFS()
+        if err := ValidateKubernetesName(namespace, "namespace"); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if err := ValidateKubernetesName(pvcName, "pvc-name"); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if err := validateMountPoint(localMountPoint); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">clientset, err := BuildKubeClient()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">pvc, err := checkPVCUsage(ctx, clientset, namespace, pvcName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">canBeMounted, podUsingPVC, err := checkPVAccessMode(ctx, clientset, pvc, namespace)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if canBeMounted </span><span class="cov0" title="0">{
+                return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret, cpuLimit)
+        }</span>
+        <span class="cov0" title="0">return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, needsRoot, debug, image, imageSecret, cpuLimit)</span>
+}
+
+// validateMountPoint checks if the local mount point exists.
+func validateMountPoint(localMountPoint string) error <span class="cov8" title="1">{
+        if _, err := os.Stat(localMountPoint); os.IsNotExist(err) </span><span class="cov8" title="1">{
+                return fmt.Errorf("local mount point %s does not exist", localMountPoint)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// generateAndDebugKeys generates SSH key pair and optionally prints debug info.
+func generateAndDebugKeys(debug bool) (privateKey, publicKey string, err error) <span class="cov0" title="0">{
+        privateKey, publicKey, err = GenerateKeyPair(elliptic.P256())
+        if err != nil </span><span class="cov0" title="0">{
+                return "", "", fmt.Errorf("error generating key pair: %w", err)
+        }</span>
+        <span class="cov0" title="0">if debug </span><span class="cov0" title="0">{
+                fmt.Printf("Private Key:\n%s\n", privateKey)
+        }</span>
+        <span class="cov0" title="0">return privateKey, publicKey, nil</span>
+}
+
+// setupPodAndWait creates a pod and waits for it to be ready.
+func setupPodAndWait(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey string, config mountConfig, needsRoot bool, image, imageSecret, cpuLimit string) (podName string, port int, err error) <span class="cov0" title="0">{
+        podName, port, err = setupPod(ctx, clientset, namespace, pvcName, publicKey, config.role, config.sshPort, config.originalPodName, needsRoot, image, imageSecret, cpuLimit)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", 0, err
+        }</span>
+        <span class="cov0" title="0">if err := waitForPodReady(ctx, clientset, namespace, podName); err != nil </span><span class="cov0" title="0">{
+                return "", 0, err
+        }</span>
+        <span class="cov0" title="0">return podName, port, nil</span>
+}
+
+// setupPortForwardAndMount establishes port forwarding and mounts the volume.
+func setupPortForwardAndMount(ctx context.Context, namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot, debug bool, isProxyMode bool) error <span class="cov0" title="0">{
+        timeout := 30 * time.Second
+        if isProxyMode </span><span class="cov0" title="0">{
+                timeout = 60 * time.Second
+        }</span>
+        <span class="cov0" title="0">pfCmd, err := setupPortForwarding(ctx, namespace, podName, port, debug, timeout)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">if err := mountPVCOverSSH(ctx, port, localMountPoint, pvcName, privateKey, needsRoot); err != nil </span><span class="cov0" title="0">{
+                cleanupPortForward(pfCmd)
+                return err
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+// checkPVAccessMode checks the access mode of a PV and determines if it can be mounted.
+func checkPVAccessMode(ctx context.Context, clientset *kubernetes.Clientset, pvc *corev1.PersistentVolumeClaim, namespace string) (bool, string, error) <span class="cov0" title="0">{
+        pvName := pvc.Spec.VolumeName
+        pv, err := clientset.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
+        if err != nil </span><span class="cov0" title="0">{
+                return true, "", fmt.Errorf("failed to get PV: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if contains(pv.Spec.AccessModes, corev1.ReadWriteOnce) </span><span class="cov0" title="0">{
+                podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+                if err != nil </span><span class="cov0" title="0">{
+                        return true, "", fmt.Errorf("failed to list pods: %w", err)
+                }</span>
+                <span class="cov0" title="0">for _, pod := range podList.Items </span><span class="cov0" title="0">{
+                        for _, volume := range pod.Spec.Volumes </span><span class="cov0" title="0">{
+                                if volume.PersistentVolumeClaim != nil &amp;&amp; volume.PersistentVolumeClaim.ClaimName == pvc.Name </span><span class="cov0" title="0">{
+                                        return false, pod.Name, nil
+                                }</span>
+                        }
+                }
+        }
+        <span class="cov0" title="0">return true, "", nil</span>
+}
+
+// contains checks if a slice of access modes contains a specific mode.
+func contains(modes []corev1.PersistentVolumeAccessMode, modeToFind corev1.PersistentVolumeAccessMode) bool <span class="cov8" title="1">{
+        for _, mode := range modes </span><span class="cov8" title="1">{
+                if mode == modeToFind </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+// checkPVCUsage verifies that a PVC exists and is bound.
+func checkPVCUsage(ctx context.Context, clientset kubernetes.Interface, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) <span class="cov8" title="1">{
+        pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, pvcName, metav1.GetOptions{})
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to get PVC: %w", err)
+        }</span>
+        <span class="cov8" title="1">if pvc.Status.Phase != corev1.ClaimBound </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("PVC %s is not bound", pvcName)
+        }</span>
+        <span class="cov8" title="1">return pvc, nil</span>
+}
+
+// generatePodNameAndPort generates a unique pod name and random port.
+func generatePodNameAndPort(role string) (string, int) <span class="cov8" title="1">{
+        suffix := randSeq(5)
+        baseName := "volume-exposer"
+        if role == "proxy" </span><span class="cov8" title="1">{
+                baseName = "volume-exposer-proxy"
+        }</span>
+        <span class="cov8" title="1">podName := fmt.Sprintf("%s-%s", baseName, suffix)
+        portBig, err := crand.Int(crand.Reader, big.NewInt(64511))
+        if err != nil </span><span class="cov0" title="0">{
+                return podName, 1024
+        }</span>
+        <span class="cov8" title="1">port := int(portBig.Int64()) + 1024
+        return podName, port</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package plugin
+
+import (
+        "context"
+
+        "k8s.io/client-go/kubernetes"
+)
+
+// handleRWO handles mounting of RWO (ReadWriteOnce) volumes that are already mounted.
+func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error <span class="cov0" title="0">{
+        privateKey, publicKey, err := generateAndDebugKeys(debug)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">proxyPodName, port, err := setupProxyPod(ctx, clientset, namespace, pvcName, publicKey, podUsingPVC, needsRoot, image, imageSecret, cpuLimit)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err := setupEphemeralContainerWithTunnel(ctx, clientset, namespace, podUsingPVC, proxyPodName, privateKey, publicKey, needsRoot, debug, image); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return setupPortForwardAndMount(ctx, namespace, proxyPodName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, true)</span>
+}
+
+// setupProxyPod creates a proxy pod for RWO volume access.
+func setupProxyPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) (string, int, error) <span class="cov0" title="0">{
+        config := mountConfig{
+                role:            "proxy",
+                sshPort:         ProxySSHPort,
+                originalPodName: originalPodName,
+        }
+        return setupPodAndWait(ctx, clientset, namespace, pvcName, publicKey, config, needsRoot, image, imageSecret, cpuLimit)
+}</span>
+
+// setupEphemeralContainerWithTunnel creates an ephemeral container and establishes SSH tunnel.
+func setupEphemeralContainerWithTunnel(ctx context.Context, clientset *kubernetes.Clientset, namespace, podUsingPVC, proxyPodName, privateKey, publicKey string, needsRoot, debug bool, image string) error <span class="cov0" title="0">{
+        proxyPodIP, err := getPodIP(ctx, clientset, namespace, proxyPodName)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if err := createEphemeralContainer(ctx, clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP, needsRoot, image); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, debug)</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package plugin
+
+import (
+        "context"
+
+        "k8s.io/client-go/kubernetes"
+)
+
+// handleRWX handles mounting of RWX (ReadWriteMany) or unmounted RWO volumes.
+func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error <span class="cov0" title="0">{
+        privateKey, publicKey, err := generateAndDebugKeys(debug)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">config := mountConfig{
+                role:            "standalone",
+                sshPort:         DefaultSSHPort,
+                originalPodName: "",
+        }
+
+        podName, port, err := setupPodAndWait(ctx, clientset, namespace, pvcName, publicKey, config, needsRoot, image, imageSecret, cpuLimit)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, false)</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package plugin
+
+import (
+        "context"
+        "fmt"
+        "time"
+
+        corev1 "k8s.io/api/core/v1"
+        "k8s.io/apimachinery/pkg/api/resource"
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        "k8s.io/apimachinery/pkg/util/wait"
+        "k8s.io/client-go/kubernetes"
+)
+
+// setupPod creates a new pod for exposing a PVC via SSH.
+func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) (string, int, error) <span class="cov0" title="0">{
+        podName, port := generatePodNameAndPort(role)
+        pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot, image, imageSecret, cpuLimit)
+        if _, err := clientset.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil </span><span class="cov0" title="0">{
+                return "", 0, fmt.Errorf("failed to create pod: %w", err)
+        }</span>
+        <span class="cov0" title="0">fmt.Printf("Pod %s created successfully\n", podName)
+        return podName, port, nil</span>
+}
+
+// waitForPodReady waits for a pod to reach the Ready state.
+func waitForPodReady(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string) error <span class="cov0" title="0">{
+        return wait.PollUntilContextTimeout(ctx, time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) </span><span class="cov0" title="0">{
+                pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+                if err != nil </span><span class="cov0" title="0">{
+                        return false, err
+                }</span>
+                <span class="cov0" title="0">for _, cond := range pod.Status.Conditions </span><span class="cov0" title="0">{
+                        if cond.Type == corev1.PodReady &amp;&amp; cond.Status == corev1.ConditionTrue </span><span class="cov0" title="0">{
+                                return true, nil
+                        }</span>
+                }
+                <span class="cov0" title="0">return false, nil</span>
+        })
+}
+
+// getPodIP retrieves the IP address of a pod.
+func getPodIP(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) (string, error) <span class="cov8" title="1">{
+        pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+        if err != nil </span><span class="cov8" title="1">{
+                return "", fmt.Errorf("failed to get pod IP: %w", err)
+        }</span>
+        <span class="cov8" title="1">return pod.Status.PodIP, nil</span>
+}
+
+// createPodSpec creates the pod specification for volume exposer.
+func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) *corev1.Pod <span class="cov8" title="1">{
+        if sshPort &lt; 0 || sshPort &gt; 65535 </span><span class="cov0" title="0">{
+                sshPort = DefaultSSHPort
+        }</span>
+
+        <span class="cov8" title="1">container := buildContainer(publicKey, role, sshPort, needsRoot, image, cpuLimit)
+        labels := buildPodLabels(pvcName, port, originalPodName)
+        imagePullSecrets := buildImagePullSecrets(imageSecret)
+        podSecurityContext := buildPodSecurityContext(needsRoot)
+
+        pod := &amp;corev1.Pod{
+                ObjectMeta: metav1.ObjectMeta{
+                        Name:   podName,
+                        Labels: labels,
+                },
+                Spec: corev1.PodSpec{
+                        Containers:       []corev1.Container{container},
+                        SecurityContext:  podSecurityContext,
+                        ImagePullSecrets: imagePullSecrets,
+                },
+        }
+
+        if role != "proxy" </span><span class="cov8" title="1">{
+                attachPVCToPod(pod, pvcName)
+        }</span>
+
+        <span class="cov8" title="1">return pod</span>
+}
+
+// buildContainer creates the container specification for volume exposer.
+func buildContainer(publicKey, role string, sshPort int, needsRoot bool, image, cpuLimit string) corev1.Container <span class="cov8" title="1">{
+        envVars := buildEnvVars(publicKey, role, sshPort, needsRoot)
+        imageToUse := selectImage(image, needsRoot)
+        resources := buildResourceRequirements(cpuLimit)
+
+        return corev1.Container{
+                Name:            "volume-exposer",
+                Image:           imageToUse,
+                ImagePullPolicy: corev1.PullAlways,
+                Ports: []corev1.ContainerPort{
+                        {ContainerPort: int32(sshPort)}, // #nosec G115 -- sshPort is validated to be within valid port range (1024-65535)
+                },
+                Env:             envVars,
+                SecurityContext: getSecurityContext(needsRoot),
+                Resources:       resources,
+        }
+}</span>
+
+// buildEnvVars creates environment variables for the container.
+func buildEnvVars(publicKey, role string, sshPort int, needsRoot bool) []corev1.EnvVar <span class="cov8" title="1">{
+        envVars := []corev1.EnvVar{
+                {Name: "SSH_PUBLIC_KEY", Value: publicKey},
+                {Name: "SSH_PORT", Value: fmt.Sprintf("%d", sshPort)},
+                {Name: "NEEDS_ROOT", Value: fmt.Sprintf("%v", needsRoot)},
+        }
+        if role == "standalone" || role == "proxy" </span><span class="cov8" title="1">{
+                envVars = append(envVars, corev1.EnvVar{
+                        Name:  "ROLE",
+                        Value: role,
+                })
+        }</span>
+        <span class="cov8" title="1">return envVars</span>
+}
+
+// selectImage selects the appropriate container image based on requirements.
+func selectImage(image string, needsRoot bool) string <span class="cov8" title="1">{
+        if image != "" </span><span class="cov8" title="1">{
+                return image
+        }</span>
+        <span class="cov8" title="1">if needsRoot </span><span class="cov8" title="1">{
+                return PrivilegedImage
+        }</span>
+        <span class="cov8" title="1">return Image</span>
+}
+
+// buildResourceRequirements creates resource requests and limits for the container.
+func buildResourceRequirements(cpuLimit string) corev1.ResourceRequirements <span class="cov8" title="1">{
+        resources := corev1.ResourceRequirements{
+                Requests: corev1.ResourceList{
+                        corev1.ResourceCPU:              resource.MustParse(CPURequest),
+                        corev1.ResourceMemory:           resource.MustParse(MemoryRequest),
+                        corev1.ResourceEphemeralStorage: resource.MustParse(EphemeralStorageRequest),
+                },
+                Limits: corev1.ResourceList{
+                        corev1.ResourceMemory:           resource.MustParse(MemoryLimit),
+                        corev1.ResourceEphemeralStorage: resource.MustParse(EphemeralStorageLimit),
+                },
+        }
+        if cpuLimit != "" </span><span class="cov8" title="1">{
+                resources.Limits[corev1.ResourceCPU] = resource.MustParse(cpuLimit)
+        }</span>
+        <span class="cov8" title="1">return resources</span>
+}
+
+// buildPodLabels creates labels for the pod.
+func buildPodLabels(pvcName string, port int, originalPodName string) map[string]string <span class="cov8" title="1">{
+        labels := map[string]string{
+                "app":        "volume-exposer",
+                "pvcName":    pvcName,
+                "portNumber": fmt.Sprintf("%d", port),
+        }
+        if originalPodName != "" </span><span class="cov8" title="1">{
+                labels["originalPodName"] = originalPodName
+        }</span>
+        <span class="cov8" title="1">return labels</span>
+}
+
+// buildImagePullSecrets creates image pull secrets if specified.
+func buildImagePullSecrets(imageSecret string) []corev1.LocalObjectReference <span class="cov8" title="1">{
+        if imageSecret == "" </span><span class="cov8" title="1">{
+                return []corev1.LocalObjectReference{}
+        }</span>
+        <span class="cov8" title="1">return []corev1.LocalObjectReference{{Name: imageSecret}}</span>
+}
+
+// buildPodSecurityContext creates the pod security context.
+func buildPodSecurityContext(needsRoot bool) *corev1.PodSecurityContext <span class="cov8" title="1">{
+        runAsNonRoot := !needsRoot
+        runAsUser := DefaultUserGroup
+        runAsGroup := DefaultUserGroup
+        if needsRoot </span><span class="cov8" title="1">{
+                runAsUser = 0
+                runAsGroup = 0
+        }</span>
+        <span class="cov8" title="1">return &amp;corev1.PodSecurityContext{
+                RunAsNonRoot: &amp;runAsNonRoot,
+                RunAsUser:    &amp;runAsUser,
+                RunAsGroup:   &amp;runAsGroup,
+        }</span>
+}
+
+// attachPVCToPod attaches a PVC to the pod specification.
+func attachPVCToPod(pod *corev1.Pod, pvcName string) <span class="cov8" title="1">{
+        pod.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
+                {MountPath: "/volume", Name: "my-pvc"},
+        }
+        pod.Spec.Volumes = []corev1.Volume{
+                {
+                        Name: "my-pvc",
+                        VolumeSource: corev1.VolumeSource{
+                                PersistentVolumeClaim: &amp;corev1.PersistentVolumeClaimVolumeSource{
+                                        ClaimName: pvcName,
+                                },
+                        },
+                },
+        }
+}</span>
+
+// getSecurityContext creates the container security context.
+func getSecurityContext(needsRoot bool) *corev1.SecurityContext <span class="cov8" title="1">{
+        allowPrivilegeEscalationTrue := true
+        allowPrivilegeEscalationFalse := false
+        readOnlyRootFilesystemTrue := true
+        runAsNonRootTrue := true
+        seccompProfileRuntimeDefault := corev1.SeccompProfile{
+                Type: corev1.SeccompProfileTypeRuntimeDefault,
+        }
+        if needsRoot </span><span class="cov8" title="1">{
+                return &amp;corev1.SecurityContext{
+                        AllowPrivilegeEscalation: &amp;allowPrivilegeEscalationTrue,
+                        ReadOnlyRootFilesystem:   &amp;readOnlyRootFilesystemTrue,
+                        Capabilities: &amp;corev1.Capabilities{
+                                Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
+                        },
+                        SeccompProfile: &amp;seccompProfileRuntimeDefault,
+                }
+        }</span>
+        <span class="cov8" title="1">return &amp;corev1.SecurityContext{
+                AllowPrivilegeEscalation: &amp;allowPrivilegeEscalationFalse,
+                ReadOnlyRootFilesystem:   &amp;readOnlyRootFilesystemTrue,
+                Capabilities: &amp;corev1.Capabilities{
+                        Drop: []corev1.Capability{"ALL"},
+                },
+                SeccompProfile: &amp;seccompProfileRuntimeDefault,
+                RunAsUser:      &amp;DefaultID,
+                RunAsGroup:     &amp;DefaultID,
+                RunAsNonRoot:   &amp;runAsNonRootTrue,
+        }</span>
+}
+
+// getPVCVolumeName finds the volume name for a PVC in a pod.
+func getPVCVolumeName(pod *corev1.Pod) (string, error) <span class="cov8" title="1">{
+        for _, volume := range pod.Spec.Volumes </span><span class="cov8" title="1">{
+                if volume.PersistentVolumeClaim != nil &amp;&amp; volume.PersistentVolumeClaim.ClaimName != "" </span><span class="cov8" title="1">{
+                        return volume.Name, nil
+                }</span>
+        }
+        <span class="cov8" title="1">return "", fmt.Errorf("failed to find volume name in the existing pod")</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package plugin
+
+import (
+        "context"
+        "fmt"
+        "net"
+        "os"
+        "os/exec"
+        "sync"
+        "time"
+)
+
+var (
+        tempKeyFiles   = make(map[string]struct{})
+        tempKeyFilesMu sync.Mutex
+)
+
+// registerTempKeyFile registers a temporary key file for cleanup.
+func registerTempKeyFile(path string) <span class="cov8" title="1">{
+        tempKeyFilesMu.Lock()
+        defer tempKeyFilesMu.Unlock()
+        tempKeyFiles[path] = struct{}{}
+}</span>
+
+// unregisterTempKeyFile removes a temporary key file from the cleanup list.
+func unregisterTempKeyFile(path string) <span class="cov8" title="1">{
+        tempKeyFilesMu.Lock()
+        defer tempKeyFilesMu.Unlock()
+        delete(tempKeyFiles, path)
+}</span>
+
+// cleanupTempKeyFiles removes all registered temporary key files.
+func cleanupTempKeyFiles() <span class="cov8" title="1">{
+        tempKeyFilesMu.Lock()
+        defer tempKeyFilesMu.Unlock()
+        for file := range tempKeyFiles </span><span class="cov8" title="1">{
+                _ = os.Remove(file)
+        }</span>
+}
+
+// setupPortForwarding establishes port forwarding to a pod.
+func setupPortForwarding(ctx context.Context, namespace, podName string, port int, debug bool, timeout time.Duration) (*exec.Cmd, error) <span class="cov0" title="0">{
+        cmd := exec.CommandContext(ctx, "kubectl", "port-forward", fmt.Sprintf("pod/%s", podName), fmt.Sprintf("%d:%d", port, DefaultSSHPort), "-n", namespace) // #nosec G204 -- namespace and podName are validated Kubernetes resource names
+        if debug </span><span class="cov0" title="0">{
+                cmd.Stdout = os.Stdout
+                cmd.Stderr = os.Stderr
+        }</span>
+        <span class="cov0" title="0">if err := cmd.Start(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to start port-forward: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if err := waitForSSHReady(ctx, port, timeout); err != nil </span><span class="cov0" title="0">{
+                cleanupPortForward(cmd)
+                return nil, fmt.Errorf("failed to establish SSH connection: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if !debug </span><span class="cov0" title="0">{
+                fmt.Printf("Forwarding from 127.0.0.1:%d -&gt; %d\n", port, DefaultSSHPort)
+        }</span>
+        <span class="cov0" title="0">return cmd, nil</span>
+}
+
+// cleanupPortForward terminates a port-forward process.
+func cleanupPortForward(cmd *exec.Cmd) <span class="cov8" title="1">{
+        if cmd != nil &amp;&amp; cmd.Process != nil </span><span class="cov8" title="1">{
+                _ = cmd.Process.Kill()
+        }</span>
+}
+
+// waitForSSHReady waits for SSH daemon to become available on the specified port.
+func waitForSSHReady(ctx context.Context, port int, timeout time.Duration) error <span class="cov0" title="0">{
+        deadline := time.Now().Add(timeout)
+        ticker := time.NewTicker(500 * time.Millisecond)
+        defer ticker.Stop()
+
+        for </span><span class="cov0" title="0">{
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        return ctx.Err()</span>
+                case &lt;-ticker.C:<span class="cov0" title="0">
+                        if time.Now().After(deadline) </span><span class="cov0" title="0">{
+                                return fmt.Errorf("timeout waiting for SSH daemon to become ready on port %d", port)
+                        }</span>
+
+                        <span class="cov0" title="0">if isSSHReady(ctx, port) </span><span class="cov0" title="0">{
+                                return nil
+                        }</span>
+                }
+        }
+}
+
+// isSSHReady checks if SSH daemon is ready by attempting to connect and read the SSH banner.
+func isSSHReady(ctx context.Context, port int) bool <span class="cov0" title="0">{
+        dialer := &amp;net.Dialer{Timeout: time.Second}
+        conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", port))
+        if err != nil </span><span class="cov0" title="0">{
+                return false
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+                _ = conn.Close()
+        }</span>()
+
+        <span class="cov0" title="0">buf := make([]byte, 4)
+        if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil </span><span class="cov0" title="0">{
+                return false
+        }</span>
+
+        <span class="cov0" title="0">n, err := conn.Read(buf)
+        return err == nil &amp;&amp; n &gt;= 3 &amp;&amp; string(buf[:3]) == "SSH"</span>
+}
+
+// mountPVCOverSSH mounts a PVC using SSHFS.
+func mountPVCOverSSH(
+        ctx context.Context,
+        port int,
+        localMountPoint, pvcName, privateKey string,
+        needsRoot bool) error <span class="cov0" title="0">{
+
+        keyFilePath, cleanup, err := createTempSSHKeyFile(privateKey)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer cleanup()
+
+        sshUser := selectSSHUser(needsRoot)
+        sshfsCmd := buildSSHFSCommand(ctx, keyFilePath, sshUser, localMountPoint, port)
+
+        sshfsCmd.Stdout = os.Stdout
+        sshfsCmd.Stderr = os.Stderr
+
+        if err := sshfsCmd.Run(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to mount PVC using SSHFS: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("PVC %s mounted successfully to %s\n", pvcName, localMountPoint)
+        return nil</span>
+}
+
+// createTempSSHKeyFile creates a temporary file containing the SSH private key.
+func createTempSSHKeyFile(privateKey string) (string, func(), error) <span class="cov8" title="1">{
+        tmpFile, err := os.CreateTemp("", "ssh_key_*.pem")
+        if err != nil </span><span class="cov0" title="0">{
+                return "", nil, fmt.Errorf("failed to create temporary file for SSH private key: %w", err)
+        }</span>
+        <span class="cov8" title="1">keyFilePath := tmpFile.Name()
+        registerTempKeyFile(keyFilePath)
+
+        cleanup := func() </span><span class="cov8" title="1">{
+                _ = os.Remove(keyFilePath)
+                unregisterTempKeyFile(keyFilePath)
+        }</span>
+
+        <span class="cov8" title="1">if err := os.Chmod(keyFilePath, 0600); err != nil </span><span class="cov0" title="0">{
+                cleanup()
+                return "", nil, fmt.Errorf("failed to set permissions on temporary SSH key file: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if _, err := tmpFile.Write([]byte(privateKey)); err != nil </span><span class="cov0" title="0">{
+                cleanup()
+                return "", nil, fmt.Errorf("failed to write SSH private key to temporary file: %w", err)
+        }</span>
+        <span class="cov8" title="1">if err := tmpFile.Close(); err != nil </span><span class="cov0" title="0">{
+                cleanup()
+                return "", nil, fmt.Errorf("failed to close temporary file: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return keyFilePath, cleanup, nil</span>
+}
+
+// selectSSHUser selects the SSH user based on whether root access is needed.
+func selectSSHUser(needsRoot bool) string <span class="cov8" title="1">{
+        if needsRoot </span><span class="cov8" title="1">{
+                return "root"
+        }</span>
+        <span class="cov8" title="1">return "ve"</span>
+}
+
+// buildSSHFSCommand constructs the sshfs command with appropriate options.
+func buildSSHFSCommand(ctx context.Context, keyFilePath, sshUser, localMountPoint string, port int) *exec.Cmd <span class="cov8" title="1">{
+        return exec.CommandContext(ctx, // #nosec G204 -- keyFilePath is a securely created temp file, localMountPoint is user-provided
+                "sshfs",
+                "-o", fmt.Sprintf("IdentityFile=%s", keyFilePath),
+                "-o", "StrictHostKeyChecking=no",
+                "-o", "UserKnownHostsFile=/dev/null",
+                "-o", "nomap=ignore",
+                fmt.Sprintf("%s@localhost:/volume", sshUser),
+                localMountPoint,
+                "-p", fmt.Sprintf("%d", port),
+        )
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package plugin
+
+import (
+        crand "crypto/rand"
+        "crypto/x509"
+        "encoding/pem"
+
+        "crypto/ecdsa"
+        "crypto/elliptic"
+
+        "fmt"
+        "math/big"
+        "math/rand/v2"
+        "os"
+        "os/exec"
+        "regexp"
+        "runtime"
+        "strings"
+
+        "golang.org/x/crypto/ssh"
+        "k8s.io/client-go/kubernetes"
+        "k8s.io/client-go/tools/clientcmd"
+)
+
+// BuildKubeClient creates a Kubernetes clientset from the kubeconfig file.
+func BuildKubeClient() (*kubernetes.Clientset, error) <span class="cov0" title="0">{
+        kubeconfig := os.Getenv("KUBECONFIG")
+        if kubeconfig == "" </span><span class="cov0" title="0">{
+                home := os.Getenv("HOME")
+                kubeconfig = fmt.Sprintf("%s/.kube/config", home)
+        }</span>
+
+        <span class="cov0" title="0">config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to build Kubernetes config: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">clientset, err := kubernetes.NewForConfig(config)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return clientset, nil</span>
+}
+
+func randSeq(n int) string <span class="cov8" title="1">{
+        if n &lt;= 0 </span><span class="cov8" title="1">{
+                return ""
+        }</span>
+        <span class="cov8" title="1">letters := []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+        b := make([]rune, n)
+        for i := range b </span><span class="cov8" title="1">{
+                idx, err := crand.Int(crand.Reader, big.NewInt(int64(len(letters))))
+                if err != nil </span><span class="cov0" title="0">{
+                        b[i] = letters[rand.IntN(len(letters))] // #nosec G404 -- fallback only, crypto/rand is attempted first
+                }</span> else<span class="cov8" title="1"> {
+                        b[i] = letters[idx.Int64()]
+                }</span>
+        }
+        <span class="cov8" title="1">return string(b)</span>
+}
+
+// GenerateKeyPair generates an ECDSA key pair for SSH authentication.
+func GenerateKeyPair(curve elliptic.Curve) (string, string, error) <span class="cov8" title="1">{
+        if curve == nil </span><span class="cov8" title="1">{
+                return "", "", fmt.Errorf("curve must not be nil")
+        }</span>
+        // Generate a new private key
+        <span class="cov8" title="1">privateKey, err := ecdsa.GenerateKey(curve, crand.Reader)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", "", fmt.Errorf("failed to generate private key: %w", err)
+        }</span>
+
+        // Encode the private key to PKCS8 format
+        <span class="cov8" title="1">privateKeyPKCS8, err := x509.MarshalECPrivateKey(privateKey)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", "", fmt.Errorf("failed to marshal private key to PKCS8: %w", err)
+        }</span>
+
+        // Encode the private key to PEM format
+        <span class="cov8" title="1">privateKeyPEM := pem.EncodeToMemory(&amp;pem.Block{
+                Type:  "EC PRIVATE KEY",
+                Bytes: privateKeyPKCS8,
+        })
+
+        // Extract the public key from the private key
+        publicKey := &amp;privateKey.PublicKey
+
+        // Convert the ECDSA public key to the ssh.PublicKey type
+        sshPublicKey, err := ssh.NewPublicKey(publicKey)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", "", fmt.Errorf("failed to create SSH public key: %w", err)
+        }</span>
+
+        // Encode the SSH public key to the authorized_keys format
+        <span class="cov8" title="1">publicKeyBytes := ssh.MarshalAuthorizedKey(sshPublicKey)
+        trimmedPublicKey := strings.TrimSpace(string(publicKeyBytes))
+
+        return string(privateKeyPEM), trimmedPublicKey, nil</span>
+}
+
+func checkSSHFS() <span class="cov0" title="0">{
+        _, err := exec.LookPath("sshfs")
+        if err != nil </span><span class="cov0" title="0">{
+                fmt.Println("sshfs is not available in your environment.")
+                switch runtime.GOOS </span>{
+                case "darwin":<span class="cov0" title="0">
+                        fmt.Println("For macOS, please install sshfs by visiting: https://osxfuse.github.io/")</span>
+                case "linux":<span class="cov0" title="0">
+                        fmt.Println("For Linux, please install sshfs by visiting: https://github.com/libfuse/sshfs")</span>
+                default:<span class="cov0" title="0">
+                        fmt.Println("Please install sshfs and try again.")</span>
+                }
+                <span class="cov0" title="0">os.Exit(1)</span>
+        }
+}
+
+// ValidateKubernetesName validates that a name conforms to Kubernetes naming rules.
+func ValidateKubernetesName(name, fieldName string) error <span class="cov8" title="1">{
+        if name == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("%s cannot be empty", fieldName)
+        }</span>
+        <span class="cov8" title="1">if len(name) &gt; 253 </span><span class="cov8" title="1">{
+                return fmt.Errorf("%s must be no more than 253 characters", fieldName)
+        }</span>
+        <span class="cov8" title="1">validNameRegex := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+        if !validNameRegex.MatchString(name) </span><span class="cov8" title="1">{
+                return fmt.Errorf("%s must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character", fieldName)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

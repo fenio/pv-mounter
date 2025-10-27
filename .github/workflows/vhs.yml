@@ -67,7 +67,7 @@ jobs:
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
         with:
-          packages: sshfs openssh-client libfuse3-3 ttyd ffmpeg
+          packages: sshfs openssh-client libfuse3-3 ttyd ffmpeg zsh
           version: ${{ runner.arch }}-1.0
 
       - name: 🧪 Generate the gif with vhs

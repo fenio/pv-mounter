@@ -37,6 +37,8 @@ jobs:
 
       - name: Setup KubeSolo
         uses: fenio/setup-kubesolo@v1
+        env:
+          KUBESOLO_LOCAL_STORAGE: true
 
       - name: Create test PVCs and pods
         run: |

@@ -40,8 +40,12 @@ jobs:
       - name: Build pv-mounter
         run: make bin
 
-      - name: Setup Kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+      - name: Start minikube
+        id: minikube
+        uses: medyagh/setup-minikube@e3c7f79eb1e997eabccc536a6cf318a2b0fe19d9 # v0.0.20
+        with:
+          cpus: 4
+          memory: 6000m
 
       - name: Create test PVCs and pods
         run: |
@@ -71,12 +75,12 @@ jobs:
           sudo apt-get install -y sshfs
 
       - name: Generate unmounted demo
-        uses: charmbracelet/vhs-action@f1dc43c0fe8c9b87b3e762247cf15dee7d9d5515 # v2.2.0
+        uses: charmbracelet/vhs-action@v1
         with:
           path: demo/unmounted.tape
 
       - name: Generate mounted demo
-        uses: charmbracelet/vhs-action@f1dc43c0fe8c9b87b3e762247cf15dee7d9d5515 # v2.2.0
+        uses: charmbracelet/vhs-action@v1
         with:
           path: demo/mounted.tape
 

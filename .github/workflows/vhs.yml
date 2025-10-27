@@ -51,8 +51,8 @@ jobs:
           kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-1 -n demo --timeout=60s || true
           kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-2 -n demo --timeout=60s || true
           
-          kubectl describe pvc-1 -n demo
-          kubectl describe pvc-2 -n demo
+          kubectl describe pvc pvc-1 -n demo
+          kubectl describe pvc pvc-2 -n demo
          
           # Create mount point
           mkdir -p foo

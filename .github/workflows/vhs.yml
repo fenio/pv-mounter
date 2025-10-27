@@ -71,12 +71,12 @@ jobs:
           version: ${{ runner.arch }}-1.0
 
       - name: Generate unmounted demo
-        uses: charmbracelet/vhs-action@v1
+        uses: charmbracelet/vhs-action@v2
         with:
           path: demo/unmounted.tape
 
       - name: Generate mounted demo
-        uses: charmbracelet/vhs-action@v1
+        uses: charmbracelet/vhs-action@v2
         with:
           path: demo/mounted.tape
 

@@ -121,7 +121,9 @@ I confirmed it also kills other processes that were running in that container, b
 
 ## Demo
 
-Created with [VHS](https://github.com/charmbracelet/vhs) tool.
+Created with [VHS](https://github.com/charmbracelet/vhs) tool and automated via [vhs-action](https://github.com/charmbracelet/vhs-action).
+
+The demo GIFs are automatically regenerated when code or tape files change.
 
 ### RWX or unmounted RWO volume
 

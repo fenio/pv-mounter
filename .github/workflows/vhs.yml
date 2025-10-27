@@ -72,6 +72,7 @@ jobs:
 
       - name: 🧪 Generate the gif with vhs
         run: |
+          kubectl get pvc
           go install github.com/charmbracelet/vhs@latest
           vhs demo/unmounted.tape
 

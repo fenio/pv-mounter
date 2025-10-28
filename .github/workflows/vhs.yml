@@ -39,7 +39,17 @@ jobs:
 
       - name: Enable shared volumes
         run: |
-          kubectl wait --for=condition=Ready cm/local-path-config -n local-path-storage --timeout=120s 2>/dev/null || true
+          echo "⏳ Waiting for namespace local-path-storage..."
+          until kubectl get ns "local-path-storage" >/dev/null 2>&1; do
+            sleep 2
+          done
+          echo "✅ Namespace local-path-storage exists."
+          
+          echo "⏳ Waiting for ConfigMap local-path-config in namespace local-path-storage..."
+          until kubectl get cm "local-path-config" -n "local-path-storage" >/dev/null 2>&1; do
+            sleep 2
+          done
+          echo "✅ ConfigMap local-path-config found, patching..."
           echo before
           kubectl get cm local-path-config -n local-path-storage -o yaml
           kubectl patch cm local-path-config -n local-path-storage \

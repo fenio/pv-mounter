@@ -39,9 +39,7 @@ jobs:
 
       - name: Enable shared volumes
         run: |
-          kubectl get ns
-          sleep 120
-          kubectl get ns
+          kubectl wait --for=condition=Ready cm/local-path-config -n local-path-storage --timeout=120s 2>/dev/null || true
           echo before
           kubectl get cm local-path-config -n local-path-storage -o yaml
           kubectl patch cm local-path-config -n local-path-storage \
@@ -49,6 +47,7 @@ jobs:
           -p '{"data":{"config.json":"{\n  \"sharedFileSystemPath\": \"/opt/local-path-provisioner\"\n}"}}'
           echo after
           kubectl get cm local-path-config -n local-path-storage -o yaml
+          sleep 10
 
       - name: Test pv-mounter
         run: |

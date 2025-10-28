@@ -32,12 +32,11 @@ jobs:
         env:
           KUBESOLO_LOCAL_STORAGE: true
 
-      - name: Setup kubectl and pv-mounter
-        uses: marcofranssen/setup-kubectl@v2.0.0
+      - name: Setup Krew
+        uses: fenio/setup-krew@v1
         with:
-          enablePlugins: true
-          plugins: pv-mounter
-   
+          plugins: 'pv-mounter'
+
       - name: Test pv-mounter
         run: |
           kubectl pv-mounter --help

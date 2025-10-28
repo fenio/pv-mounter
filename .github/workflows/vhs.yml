@@ -75,8 +75,8 @@ jobs:
           kubectl apply -f test/2-pvc.yaml -n demo
           
           # Wait for PVCs to be bound
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-1 -n demo --timeout=60s || true
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-2 -n demo --timeout=60s || true
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-1 -n demo --timeout=120s || true
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-2 -n demo --timeout=120s || true
           
           kubectl describe pvc pvc-1 -n demo
           kubectl describe pvc pvc-2 -n demo

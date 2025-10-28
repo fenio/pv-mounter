@@ -45,8 +45,9 @@ jobs:
         with:
           enable-plugins: true
           plugins: pv-mounter
-        run: echo ${{ steps.kubectl.output.krew-version }}
-        run: echo ${{ fromJson(steps.kubectl.output.krew-plugins) }}
+        run: | 
+          echo ${{ steps.kubectl.output.krew-version }}
+          echo ${{ fromJson(steps.kubectl.output.krew-plugins) }}
     
       - name: Create test PVCs and pods
         run: |

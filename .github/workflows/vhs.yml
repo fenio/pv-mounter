@@ -46,7 +46,7 @@ jobs:
           kubectl get cm local-path-config -n local-path-storage -o yaml
           kubectl patch cm local-path-config -n local-path-storage \
           --type merge \
-          -p '{"data":{"config.json":"{\n  \"sharedFileSystemPath\": \"/opt/local-path-provisioner"\n}"}}'
+          -p '{"data":{"config.json":"{\n  \"sharedFileSystemPath\": \"/opt/local-path-provisioner\"\n}"}}'
           echo after
           kubectl get cm local-path-config -n local-path-storage -o yaml
 

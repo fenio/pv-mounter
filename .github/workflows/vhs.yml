@@ -40,6 +40,14 @@ jobs:
         env:
           KUBESOLO_LOCAL_STORAGE: true
 
+      - name: Setup kubectl and pv-mounter
+        uses: marcofranssen/setup-kubectl@v2.0.0
+        with:
+          enable-plugins: true
+          plugins: pv-mounter
+        run: echo ${{ steps.kubectl.output.krew-version }}
+        run: echo ${{ fromJson(steps.kubectl.output.krew-plugins) }}
+    
       - name: Create test PVCs and pods
         run: |
           # Create namespace

@@ -39,6 +39,7 @@ jobs:
 
       - name: Enable shared volumes
         run: |
+          kubectl get ns
           echo before
           kubectl get cm local-path-config -n local-path-storage -o yaml
           kubectl patch cm local-path-config -n local-path-storage \

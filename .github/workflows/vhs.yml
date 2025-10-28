@@ -27,14 +27,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
-        with:
-          go-version: 1.25.3
-
-      - name: Build pv-mounter
-        run: make bin
-
       - name: Setup KubeSolo
         uses: fenio/setup-kubesolo@v1
         env:
@@ -45,7 +37,11 @@ jobs:
         with:
           enable-plugins: true
           plugins: pv-mounter
-    
+   
+      - name: Test pv-mounter
+        run: |
+          kubectl pv-mounter --help
+ 
       - name: Create test PVCs and pods
         run: |
           # Create namespace

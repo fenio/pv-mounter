@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup KubeSolo
-        uses: fenio/setup-kubesolo@v1
+        uses: fenio/setup-kubesolo@v2
         env:
           KUBESOLO_LOCAL_STORAGE: true
 

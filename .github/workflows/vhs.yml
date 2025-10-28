@@ -28,12 +28,12 @@ jobs:
           fetch-depth: 0
 
       - name: Setup KubeSolo
-        uses: fenio/setup-kubesolo@v2
+        uses: fenio/setup-kubesolo@2d8767179f8fa5b56749e071485c375378a84d21 # v2
         env:
           KUBESOLO_LOCAL_STORAGE: true
 
       - name: Setup Krew
-        uses: fenio/setup-krew@v1
+        uses: fenio/setup-krew@c93fbdbdf704bcf87c6a1002e20fe7a8f3eafc4d # v1
         with:
           plugins: 'pv-mounter'
 

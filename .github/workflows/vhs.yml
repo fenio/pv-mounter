@@ -60,12 +60,6 @@ jobs:
           # Create mount point
           mkdir -p foo
           
-          # Install pv-mounter to kubectl plugins
-          mkdir -p ~/.local/bin
-          cp bin/pv-mounter ~/.local/bin/kubectl-pv_mounter
-          chmod +x ~/.local/bin/kubectl-pv_mounter
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
       - name: Install VHS and dependencies
         run: |
           sudo apt-get update

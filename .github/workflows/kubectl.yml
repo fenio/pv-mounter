@@ -12,10 +12,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: kubectl check
-        run: |
-          kubectl version
- 
       - name: Setup KubeSolo
         uses: fenio/setup-kubesolo@2d8767179f8fa5b56749e071485c375378a84d21 # v2
         env:

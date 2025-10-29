@@ -1,0 +1,28 @@
+name: vhs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: kubectl check
+        run: |
+        kubectl version
+
+      - name: Setup KubeSolo
+        uses: fenio/setup-kubesolo@2d8767179f8fa5b56749e071485c375378a84d21 # v2
+        env:
+          KUBESOLO_LOCAL_STORAGE: true
+
+      - name: kubectl check
+        run: |
+        kubectl version
+
+

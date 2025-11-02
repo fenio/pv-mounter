@@ -1,0 +1,25 @@
+name: NVMe-oF mount test
+on: [workflow_dispatch]
+
+jobs:
+  mount-nvme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nvme-cli
+        run: sudo apt-get update && sudo apt-get install -y nvme-cli rdma-core
+
+      - name: Load nvme tcp module
+        run: sudo modprobe nvme_tcp || true
+
+      - name: Connect to NVMe-oF target
+        run: |
+          sudo nvme connect -t tcp -n nqn.example:target -a 10.0.0.5 -s 4420
+
+      - name: Mount device
+        run: |
+          DEVICE=$(lsblk -o NAME,TRAN | grep nvme | awk 'NR==1{print "/dev/"$1}')
+          sudo mkdir -p /mnt/nvme
+          sudo mount "$DEVICE" /mnt/nvme
+

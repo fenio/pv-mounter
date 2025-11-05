@@ -175,6 +175,24 @@ func TestValidateKubernetesName(t *testing.T) {
 			name:      "contains dot",
 			input:     "my.pvc",
 			fieldName: "pvc-name",
+			wantErr:   false,
+		},
+		{
+			name:      "contains multiple dots",
+			input:     "ixx-blueapi-scratch-1.0.0",
+			fieldName: "pvc-name",
+			wantErr:   false,
+		},
+		{
+			name:      "starts with dot",
+			input:     ".invalid",
+			fieldName: "pvc-name",
+			wantErr:   true,
+		},
+		{
+			name:      "ends with dot",
+			input:     "invalid.",
+			fieldName: "pvc-name",
 			wantErr:   true,
 		},
 		{

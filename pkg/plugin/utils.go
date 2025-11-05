@@ -116,6 +116,7 @@ func checkSSHFS() {
 }
 
 // ValidateKubernetesName validates that a name conforms to Kubernetes naming rules.
+// DNS-1123 subdomain naming rules allow dots in addition to alphanumeric characters and hyphens.
 func ValidateKubernetesName(name, fieldName string) error {
 	if name == "" {
 		return fmt.Errorf("%s cannot be empty", fieldName)
@@ -123,9 +124,9 @@ func ValidateKubernetesName(name, fieldName string) error {
 	if len(name) > 253 {
 		return fmt.Errorf("%s must be no more than 253 characters", fieldName)
 	}
-	validNameRegex := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	validNameRegex := regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`)
 	if !validNameRegex.MatchString(name) {
-		return fmt.Errorf("%s must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character", fieldName)
+		return fmt.Errorf("%s must consist of lower case alphanumeric characters, '-', or '.', and must start and end with an alphanumeric character", fieldName)
 	}
 	return nil
 }

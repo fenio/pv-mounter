@@ -20,7 +20,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # 5.0.1
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # 6.0.0
 
       - name: Determine if builds are needed
         id: filter
@@ -48,7 +48,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # 5.0.1
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # 6.0.0
 
       - name: Extract short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::10}" >> $GITHUB_ENV
@@ -82,7 +82,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # 5.0.1
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # 6.0.0
 
       - name: Extract short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::10}" >> $GITHUB_ENV

@@ -22,6 +22,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// kubernetesNameRegex is a precompiled regex for validating Kubernetes names.
+// DNS-1123 subdomain naming rules: lowercase alphanumeric, '-', or '.', must start and end with alphanumeric.
+var kubernetesNameRegex = regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`)
+
 // BuildKubeClient creates a Kubernetes clientset from the kubeconfig file.
 func BuildKubeClient() (*kubernetes.Clientset, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
@@ -124,8 +128,7 @@ func ValidateKubernetesName(name, fieldName string) error {
 	if len(name) > 253 {
 		return fmt.Errorf("%s must be no more than 253 characters", fieldName)
 	}
-	validNameRegex := regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`)
-	if !validNameRegex.MatchString(name) {
+	if !kubernetesNameRegex.MatchString(name) {
 		return fmt.Errorf("%s must consist of lower case alphanumeric characters, '-', or '.', and must start and end with an alphanumeric character", fieldName)
 	}
 	return nil

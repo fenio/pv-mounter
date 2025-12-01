@@ -51,6 +51,8 @@ var (
 	cleanupOnce sync.Once
 )
 
+// init registers signal handlers for graceful cleanup of temporary SSH key files.
+// This ensures temporary keys are removed even if the process is interrupted.
 func init() {
 	cleanupOnce.Do(func() {
 		sigChan := make(chan os.Signal, 1)
@@ -157,20 +159,32 @@ func checkPVAccessMode(ctx context.Context, clientset *kubernetes.Clientset, pvc
 		return true, "", fmt.Errorf("failed to get PV: %w", err)
 	}
 
-	if contains(pv.Spec.AccessModes, corev1.ReadWriteOnce) {
-		podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return true, "", fmt.Errorf("failed to list pods: %w", err)
-		}
-		for _, pod := range podList.Items {
-			for _, volume := range pod.Spec.Volumes {
-				if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == pvc.Name {
-					return false, pod.Name, nil
-				}
+	if !contains(pv.Spec.AccessModes, corev1.ReadWriteOnce) {
+		return true, "", nil
+	}
+
+	podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return true, "", fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	podName := findPodUsingPVC(podList.Items, pvc.Name)
+	if podName != "" {
+		return false, podName, nil
+	}
+	return true, "", nil
+}
+
+// findPodUsingPVC finds a pod that is using the specified PVC.
+func findPodUsingPVC(pods []corev1.Pod, pvcName string) string {
+	for _, pod := range pods {
+		for _, volume := range pod.Spec.Volumes {
+			if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == pvcName {
+				return pod.Name
 			}
 		}
 	}
-	return true, "", nil
+	return ""
 }
 
 // contains checks if a slice of access modes contains a specific mode.

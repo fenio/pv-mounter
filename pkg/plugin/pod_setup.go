@@ -166,13 +166,19 @@ func buildImagePullSecrets(imageSecret string) []corev1.LocalObjectReference {
 
 // buildPodSecurityContext creates the pod security context.
 func buildPodSecurityContext(needsRoot bool) *corev1.PodSecurityContext {
-	runAsNonRoot := !needsRoot
+	if needsRoot {
+		runAsNonRoot := false
+		var runAsUser, runAsGroup int64 = 0, 0
+		return &corev1.PodSecurityContext{
+			RunAsNonRoot: &runAsNonRoot,
+			RunAsUser:    &runAsUser,
+			RunAsGroup:   &runAsGroup,
+		}
+	}
+
+	runAsNonRoot := true
 	runAsUser := DefaultUserGroup
 	runAsGroup := DefaultUserGroup
-	if needsRoot {
-		runAsUser = 0
-		runAsGroup = 0
-	}
 	return &corev1.PodSecurityContext{
 		RunAsNonRoot: &runAsNonRoot,
 		RunAsUser:    &runAsUser,
@@ -199,33 +205,47 @@ func attachPVCToPod(pod *corev1.Pod, pvcName string) {
 
 // getSecurityContext creates the container security context.
 func getSecurityContext(needsRoot bool) *corev1.SecurityContext {
-	allowPrivilegeEscalationTrue := true
-	allowPrivilegeEscalationFalse := false
-	readOnlyRootFilesystemTrue := true
-	runAsNonRootTrue := true
-	seccompProfileRuntimeDefault := corev1.SeccompProfile{
+	if needsRoot {
+		return getRootSecurityContext()
+	}
+	return getNonRootSecurityContext()
+}
+
+// getRootSecurityContext returns the security context for root access.
+func getRootSecurityContext() *corev1.SecurityContext {
+	allowPrivilegeEscalation := true
+	readOnlyRootFilesystem := true
+	seccompProfile := corev1.SeccompProfile{
 		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}
-	if needsRoot {
-		return &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &allowPrivilegeEscalationTrue,
-			ReadOnlyRootFilesystem:   &readOnlyRootFilesystemTrue,
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
-			},
-			SeccompProfile: &seccompProfileRuntimeDefault,
-		}
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+		ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
+		Capabilities: &corev1.Capabilities{
+			Add: []corev1.Capability{"SYS_ADMIN", "SYS_CHROOT"},
+		},
+		SeccompProfile: &seccompProfile,
+	}
+}
+
+// getNonRootSecurityContext returns the security context for non-root access.
+func getNonRootSecurityContext() *corev1.SecurityContext {
+	allowPrivilegeEscalation := false
+	readOnlyRootFilesystem := true
+	runAsNonRoot := true
+	seccompProfile := corev1.SeccompProfile{
+		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}
 	return &corev1.SecurityContext{
-		AllowPrivilegeEscalation: &allowPrivilegeEscalationFalse,
-		ReadOnlyRootFilesystem:   &readOnlyRootFilesystemTrue,
+		AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+		ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
-		SeccompProfile: &seccompProfileRuntimeDefault,
+		SeccompProfile: &seccompProfile,
 		RunAsUser:      &DefaultID,
 		RunAsGroup:     &DefaultID,
-		RunAsNonRoot:   &runAsNonRootTrue,
+		RunAsNonRoot:   &runAsNonRoot,
 	}
 }
 

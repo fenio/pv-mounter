@@ -56,7 +56,7 @@ func TestMountCmdEnvironmentVariables(t *testing.T) {
 		args := []string{"default", "test-pvc", "/tmp/test"}
 		cmd.SetArgs(args)
 
-		if err := cmd.ParseFlags(args); err == nil {
+		if cmd.ParseFlags(args) == nil {
 			t.Log("Environment variable NEEDS_ROOT is handled")
 		}
 	})
@@ -68,7 +68,7 @@ func TestMountCmdEnvironmentVariables(t *testing.T) {
 		args := []string{"default", "test-pvc", "/tmp/test"}
 		cmd.SetArgs(args)
 
-		if err := cmd.ParseFlags(args); err == nil {
+		if cmd.ParseFlags(args) == nil {
 			t.Log("Environment variable DEBUG is handled")
 		}
 	})
@@ -80,7 +80,7 @@ func TestMountCmdEnvironmentVariables(t *testing.T) {
 		args := []string{"default", "test-pvc", "/tmp/test"}
 		cmd.SetArgs(args)
 
-		if err := cmd.ParseFlags(args); err == nil {
+		if cmd.ParseFlags(args) == nil {
 			t.Log("Environment variable IMAGE is handled")
 		}
 	})

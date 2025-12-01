@@ -22,7 +22,7 @@ func parseBoolEnv(envName string, currentValue bool) (bool, error) {
 	return parsed, nil
 }
 
-func getStringEnv(envName string, currentValue string) string {
+func stringEnv(envName string, currentValue string) string {
 	if currentValue != "" {
 		return currentValue
 	}
@@ -60,9 +60,9 @@ to mount the specified PVC locally.`,
 				return err
 			}
 
-			image = getStringEnv("IMAGE", image)
-			imageSecret = getStringEnv("IMAGE_SECRET", imageSecret)
-			cpuLimit = getStringEnv("CPU_LIMIT", cpuLimit)
+			image = stringEnv("IMAGE", image)
+			imageSecret = stringEnv("IMAGE_SECRET", imageSecret)
+			cpuLimit = stringEnv("CPU_LIMIT", cpuLimit)
 
 			namespace, pvcName, localMountPoint := args[0], args[1], args[2]
 			ctx := context.Background()

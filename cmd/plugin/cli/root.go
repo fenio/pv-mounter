@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,6 +72,7 @@ func InitAndExecute() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	if err := RootCmd().Execute(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

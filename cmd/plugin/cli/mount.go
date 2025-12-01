@@ -10,6 +10,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func parseBoolEnv(envName string, currentValue bool) (bool, error) {
+	env, exists := os.LookupEnv(envName)
+	if !exists {
+		return currentValue, nil
+	}
+	parsed, err := strconv.ParseBool(env)
+	if err != nil {
+		return false, fmt.Errorf("invalid value for %s: %v", envName, env)
+	}
+	return parsed, nil
+}
+
+func getStringEnv(envName string, currentValue string) string {
+	if currentValue != "" {
+		return currentValue
+	}
+	if env, exists := os.LookupEnv(envName); exists {
+		return env
+	}
+	return currentValue
+}
+
 func mountCmd() *cobra.Command {
 	var needsRoot bool
 	var debug bool
@@ -26,33 +48,21 @@ This command sets up necessary Kubernetes resources and establishes an SSHFS con
 to mount the specified PVC locally.`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(_ *cobra.Command, args []string) error {
-			if env, exists := os.LookupEnv("NEEDS_ROOT"); exists {
-				if parsed, err := strconv.ParseBool(env); err == nil {
-					needsRoot = parsed
-				} else {
-					return fmt.Errorf("invalid value for NEEDS_ROOT: %v", env)
-				}
+			var err error
+
+			needsRoot, err = parseBoolEnv("NEEDS_ROOT", needsRoot)
+			if err != nil {
+				return err
 			}
 
-			if env, exists := os.LookupEnv("DEBUG"); exists {
-				if parsed, err := strconv.ParseBool(env); err == nil {
-					debug = parsed
-				} else {
-					return fmt.Errorf("invalid value for DEBUG: %v", env)
-				}
+			debug, err = parseBoolEnv("DEBUG", debug)
+			if err != nil {
+				return err
 			}
 
-			if env, exists := os.LookupEnv("IMAGE"); exists && image == "" {
-				image = env
-			}
-
-			if env, exists := os.LookupEnv("IMAGE_SECRET"); exists && imageSecret == "" {
-				imageSecret = env
-			}
-
-			if env, exists := os.LookupEnv("CPU_LIMIT"); exists && cpuLimit == "" {
-				cpuLimit = env
-			}
+			image = getStringEnv("IMAGE", image)
+			imageSecret = getStringEnv("IMAGE_SECRET", imageSecret)
+			cpuLimit = getStringEnv("CPU_LIMIT", cpuLimit)
 
 			namespace, pvcName, localMountPoint := args[0], args[1], args[2]
 			ctx := context.Background()

@@ -1,11 +1,14 @@
 name: NVMe-oF mount test
 on: [workflow_dispatch]
 
+permissions:
+  contents: read
+
 jobs:
   mount-nvme:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
 
       - name: Install nvme-cli
         run: sudo apt-get update && sudo apt-get install -y nvme-cli rdma-core

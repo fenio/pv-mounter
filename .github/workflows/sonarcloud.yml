@@ -15,7 +15,7 @@ jobs:
   sonarcloud:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 #v6
         with:
           fetch-depth: 0 # Full history for better analysis
 

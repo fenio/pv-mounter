@@ -13,6 +13,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -31,7 +32,7 @@ func BuildKubeClient() (*kubernetes.Clientset, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
 		home := os.Getenv("HOME")
-		kubeconfig = fmt.Sprintf("%s/.kube/config", home)
+		kubeconfig = filepath.Join(home, ".kube", "config")
 	}
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)

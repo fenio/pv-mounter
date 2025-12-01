@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"testing"
 	"time"
 
@@ -133,10 +134,10 @@ func TestContains(t *testing.T) {
 		corev1.ReadWriteOnce,
 		corev1.ReadWriteMany,
 	}
-	if !contains(modes, corev1.ReadWriteOnce) {
+	if !slices.Contains(modes, corev1.ReadWriteOnce) {
 		t.Error("Expected mode to be found")
 	}
-	if contains(modes, corev1.ReadOnlyMany) {
+	if slices.Contains(modes, corev1.ReadOnlyMany) {
 		t.Error("Did not expect mode to be found")
 	}
 }

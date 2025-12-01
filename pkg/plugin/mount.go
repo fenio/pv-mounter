@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -42,6 +43,13 @@ const (
 	EphemeralStorageRequest = "1Mi"
 	// EphemeralStorageLimit is the default ephemeral storage limit
 	EphemeralStorageLimit = "2Mi"
+
+	// MinEphemeralPort is the minimum ephemeral port number
+	MinEphemeralPort = 1024
+	// MaxEphemeralPort is the maximum ephemeral port number
+	MaxEphemeralPort = 65535
+	// EphemeralPortRange is the range of ephemeral ports (MaxEphemeralPort - MinEphemeralPort + 1)
+	EphemeralPortRange = MaxEphemeralPort - MinEphemeralPort + 1
 )
 
 // DefaultID specifies the default user and group ID for the SSH user
@@ -159,7 +167,7 @@ func checkPVAccessMode(ctx context.Context, clientset *kubernetes.Clientset, pvc
 		return true, "", fmt.Errorf("failed to get PV: %w", err)
 	}
 
-	if !contains(pv.Spec.AccessModes, corev1.ReadWriteOnce) {
+	if !slices.Contains(pv.Spec.AccessModes, corev1.ReadWriteOnce) {
 		return true, "", nil
 	}
 
@@ -187,16 +195,6 @@ func findPodUsingPVC(pods []corev1.Pod, pvcName string) string {
 	return ""
 }
 
-// contains checks if a slice of access modes contains a specific mode.
-func contains(modes []corev1.PersistentVolumeAccessMode, modeToFind corev1.PersistentVolumeAccessMode) bool {
-	for _, mode := range modes {
-		if mode == modeToFind {
-			return true
-		}
-	}
-	return false
-}
-
 // checkPVCUsage verifies that a PVC exists and is bound.
 func checkPVCUsage(ctx context.Context, clientset kubernetes.Interface, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
 	pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, pvcName, metav1.GetOptions{})
@@ -217,10 +215,10 @@ func generatePodNameAndPort(role string) (string, int) {
 		baseName = "volume-exposer-proxy"
 	}
 	podName := fmt.Sprintf("%s-%s", baseName, suffix)
-	portBig, err := crand.Int(crand.Reader, big.NewInt(64511))
+	portBig, err := crand.Int(crand.Reader, big.NewInt(EphemeralPortRange))
 	if err != nil {
-		return podName, 1024
+		return podName, MinEphemeralPort
 	}
-	port := int(portBig.Int64()) + 1024
+	port := int(portBig.Int64()) + MinEphemeralPort
 	return podName, port
 }

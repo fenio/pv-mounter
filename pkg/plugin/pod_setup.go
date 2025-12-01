@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -101,8 +102,8 @@ func buildContainer(publicKey, role string, sshPort int, needsRoot bool, image, 
 func buildEnvVars(publicKey, role string, sshPort int, needsRoot bool) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
 		{Name: "SSH_PUBLIC_KEY", Value: publicKey},
-		{Name: "SSH_PORT", Value: fmt.Sprintf("%d", sshPort)},
-		{Name: "NEEDS_ROOT", Value: fmt.Sprintf("%v", needsRoot)},
+		{Name: "SSH_PORT", Value: strconv.Itoa(sshPort)},
+		{Name: "NEEDS_ROOT", Value: strconv.FormatBool(needsRoot)},
 	}
 	if role == "standalone" || role == "proxy" {
 		envVars = append(envVars, corev1.EnvVar{
@@ -148,7 +149,7 @@ func buildPodLabels(pvcName string, port int, originalPodName string) map[string
 	labels := map[string]string{
 		"app":        "volume-exposer",
 		"pvcName":    pvcName,
-		"portNumber": fmt.Sprintf("%d", port),
+		"portNumber": strconv.Itoa(port),
 	}
 	if originalPodName != "" {
 		labels["originalPodName"] = originalPodName
@@ -159,7 +160,7 @@ func buildPodLabels(pvcName string, port int, originalPodName string) map[string
 // buildImagePullSecrets creates image pull secrets if specified.
 func buildImagePullSecrets(imageSecret string) []corev1.LocalObjectReference {
 	if imageSecret == "" {
-		return []corev1.LocalObjectReference{}
+		return nil
 	}
 	return []corev1.LocalObjectReference{{Name: imageSecret}}
 }

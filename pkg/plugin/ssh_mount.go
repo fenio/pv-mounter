@@ -96,9 +96,7 @@ func isSSHReady(ctx context.Context, port int) bool {
 	if err != nil {
 		return false
 	}
-	defer func() {
-		_ = conn.Close()
-	}()
+	defer conn.Close() //nolint:errcheck // Best effort cleanup, error not actionable
 
 	buf := make([]byte, 4)
 	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {

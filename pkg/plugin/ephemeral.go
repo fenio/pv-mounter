@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -51,7 +52,7 @@ func buildEphemeralContainerSpec(name, volumeName, privateKey, publicKey, proxyP
 				{Name: "SSH_PRIVATE_KEY", Value: privateKey},
 				{Name: "PROXY_POD_IP", Value: proxyPodIP},
 				{Name: "SSH_PUBLIC_KEY", Value: publicKey},
-				{Name: "NEEDS_ROOT", Value: fmt.Sprintf("%v", needsRoot)},
+				{Name: "NEEDS_ROOT", Value: strconv.FormatBool(needsRoot)},
 			},
 			SecurityContext: securityContext,
 			VolumeMounts: []corev1.VolumeMount{

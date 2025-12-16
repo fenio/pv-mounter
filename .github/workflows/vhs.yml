@@ -28,26 +28,16 @@ jobs:
           fetch-depth: 0
 
       # TODO: Switch back to setup-kubesolo once KubeSolo releases local-storage-shared-path support
-      # Currently this feature is only in the develop branch, so we build from source
-      - name: Build KubeSolo from develop branch
+      # Currently this feature is only in the develop branch, so we download via nightly.link
+      - name: Download KubeSolo develop binary
         run: |
-          # Clone and build KubeSolo from develop branch
+          # Download the latest develop build artifact from portainer/kubesolo via nightly.link
           # This is needed because local-storage-shared-path is only in develop branch
-          git clone --depth 1 --branch develop https://github.com/portainer/kubesolo.git /tmp/kubesolo
-          cd /tmp/kubesolo
-          
-          # Install Go if needed
-          GO_VERSION=1.23.4
-          wget -q https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz
-          sudo rm -rf /usr/local/go
-          sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
-          export PATH=$PATH:/usr/local/go/bin
-          
-          # Build kubesolo
-          go build -o kubesolo .
+          curl -sL "https://nightly.link/portainer/kubesolo/workflows/ci.yaml/develop/kubesolo-linux-amd64.zip" -o kubesolo.zip
+          unzip kubesolo.zip
           sudo mv kubesolo /usr/local/bin/kubesolo
           sudo chmod +x /usr/local/bin/kubesolo
-          kubesolo --version || echo "Built from develop branch"
+          kubesolo --version || echo "Downloaded from develop branch"
 
       - name: Setup KubeSolo cluster
         run: |

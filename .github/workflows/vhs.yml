@@ -29,30 +29,13 @@ jobs:
 
       - name: Setup KubeSolo
         uses: fenio/setup-kubesolo@1a38a78a4988905e43d8aad6476392d6a3120cc6 # v5
-        env:
-          KUBESOLO_LOCAL_STORAGE: true
+        with:
+          local-storage-shared-path: /opt/local-path-provisioner
 
       - name: Setup Krew
         uses: fenio/setup-krew@c93fbdbdf704bcf87c6a1002e20fe7a8f3eafc4d # v1
         with:
           plugins: 'pv-mounter'
-
-      - name: Enable shared volumes
-        run: |
-          echo "⏳ Waiting for namespace local-path-storage..."
-          until kubectl get ns "local-path-storage" >/dev/null 2>&1; do
-            sleep 2
-          done
-          echo "✅ Namespace local-path-storage exists."
-          
-          echo "⏳ Waiting for ConfigMap local-path-config in namespace local-path-storage..."
-          until kubectl get cm "local-path-config" -n "local-path-storage" >/dev/null 2>&1; do
-            sleep 2
-          done
-          echo "✅ ConfigMap local-path-config found, patching..."
-          kubectl patch cm local-path-config -n local-path-storage \
-          --type merge \
-          -p '{"data":{"config.json":"{\n  \"sharedFileSystemPath\": \"/opt/local-path-provisioner\"\n}"}}'
 
       - name: Test pv-mounter
         run: |

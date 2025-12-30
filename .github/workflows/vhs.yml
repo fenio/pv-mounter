@@ -27,104 +27,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      # TODO: Switch back to setup-kubesolo once KubeSolo releases local-storage-shared-path support
-      # Currently this feature is only in the develop branch, so we download via nightly.link
-      - name: Download KubeSolo develop binary
-        run: |
-          # Download the latest develop build artifact from portainer/kubesolo via nightly.link
-          # This is needed because local-storage-shared-path is only in develop branch
-          curl -sL "https://nightly.link/portainer/kubesolo/workflows/ci.yaml/develop/kubesolo-linux-amd64.zip" -o kubesolo.zip
-          unzip kubesolo.zip
-          sudo mv kubesolo /usr/local/bin/kubesolo
-          sudo chmod +x /usr/local/bin/kubesolo
-          kubesolo --version || echo "Downloaded from develop branch"
-
-      - name: Setup KubeSolo cluster
-        run: |
-          # Remove existing container runtimes (required by KubeSolo)
-          sudo systemctl stop docker docker.socket containerd podman 2>/dev/null || true
-          sudo systemctl disable docker docker.socket containerd podman 2>/dev/null || true
-          sudo pkill -9 dockerd 2>/dev/null || true
-          sudo pkill -9 containerd 2>/dev/null || true
-          
-          # Rename binaries
-          for bin in docker dockerd containerd containerd-shim containerd-shim-runc-v2 runc podman; do
-            if [ -f "/usr/bin/$bin" ]; then
-              sudo mv "/usr/bin/$bin" "/usr/bin/${bin}.bak"
-            fi
-          done
-          
-          # Remove data directories and sockets
-          sudo rm -rf /var/lib/docker /var/lib/containerd
-          sudo rm -f /var/run/docker.sock /var/run/containerd/containerd.sock
-          
-          # Remove docker0 network interface
-          sudo ip link set docker0 down 2>/dev/null || true
-          sudo ip link delete docker0 2>/dev/null || true
-          
-          # Flush iptables
-          sudo iptables -F && sudo iptables -X
-          sudo iptables -t nat -F && sudo iptables -t nat -X
-          sudo iptables -t mangle -F && sudo iptables -t mangle -X
-          sudo iptables -P INPUT ACCEPT && sudo iptables -P FORWARD ACCEPT && sudo iptables -P OUTPUT ACCEPT
-          
-          # Create data directory
-          sudo mkdir -p /var/lib/kubesolo
-          
-          # Clean up existing CNI directory
-          sudo rm -rf /opt/cni/bin 2>/dev/null || true
-          
-          # Create systemd service with local-storage-shared-path
-          cat << 'EOF' | sudo tee /etc/systemd/system/kubesolo.service > /dev/null
-          [Unit]
-          Description=KubeSolo - Lightweight Kubernetes
-          After=network-online.target
-          Wants=network-online.target
-          
-          [Service]
-          Type=notify
-          Restart=on-failure
-          RestartSec=5s
-          ExecStart=/usr/local/bin/kubesolo --path=/var/lib/kubesolo --local-storage-shared-path=/opt/local-path-provisioner
-          KillMode=process
-          Delegate=yes
-          LimitNOFILE=1048576
-          LimitNPROC=infinity
-          LimitCORE=infinity
-          TasksMax=infinity
-          
-          [Install]
-          WantedBy=multi-user.target
-          EOF
-          
-          # Start KubeSolo
-          sudo systemctl daemon-reload
-          sudo systemctl enable kubesolo
-          sudo systemctl start kubesolo
-          
-          # Wait for kubeconfig
-          echo "Waiting for kubeconfig..."
-          for i in $(seq 1 30); do
-            if sudo test -f /var/lib/kubesolo/pki/admin/admin.kubeconfig; then
-              sudo chmod 644 /var/lib/kubesolo/pki/admin/admin.kubeconfig
-              echo "KUBECONFIG=/var/lib/kubesolo/pki/admin/admin.kubeconfig" >> "$GITHUB_ENV"
-              break
-            fi
-            sleep 2
-          done
-          
-          # Wait for cluster ready
-          export KUBECONFIG=/var/lib/kubesolo/pki/admin/admin.kubeconfig
-          echo "Waiting for cluster to be ready..."
-          for i in $(seq 1 60); do
-            if kubectl get nodes --no-headers 2>/dev/null | grep -q " Ready "; then
-              echo "Cluster is ready!"
-              kubectl get nodes
-              break
-            fi
-            echo "Waiting... ($i/60)"
-            sleep 2
-          done
+      - name: Setup KubeSolo
+        id: kubesolo
+        uses: fenio/setup-kubesolo@v5
+        with:
+          local-storage-shared-path: '/opt/local-path-provisioner'
 
       - name: Setup Krew
         uses: fenio/setup-krew@c93fbdbdf704bcf87c6a1002e20fe7a8f3eafc4d # v1

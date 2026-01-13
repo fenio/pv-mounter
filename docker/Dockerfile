@@ -1,4 +1,4 @@
-FROM debian:stable-slim@sha256:449673e1239be6fdc89616f926abb87f360c280c3bb7ca3591694564359695fa
+FROM debian:stable-slim@sha256:f6681102cd18b4c0c4720a77b602498f4bdcf701c8fc02776dfb0d4c350c381f
 
 # Update package list and install necessary packages
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections

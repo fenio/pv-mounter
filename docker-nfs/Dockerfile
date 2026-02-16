@@ -7,7 +7,8 @@ RUN apt-get update && \
     apt-get clean && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /volume /run/ganesha
+    mkdir -p /volume /run/ganesha && \
+    ln -sf /proc/mounts /etc/mtab
 
 # Copy configuration and entrypoint
 COPY ganesha.conf /etc/ganesha/ganesha.conf

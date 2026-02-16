@@ -1,4 +1,7 @@
 # /etc/ssh/sshd_config
+HostKey /etc/ssh/ve_keys/ssh_host_rsa_key
+HostKey /etc/ssh/ve_keys/ssh_host_ecdsa_key
+HostKey /etc/ssh/ve_keys/ssh_host_ed25519_key
 PermitRootLogin no
 PasswordAuthentication no
 ChallengeResponseAuthentication no

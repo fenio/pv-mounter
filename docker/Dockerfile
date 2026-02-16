@@ -18,10 +18,14 @@ COPY sshd_config.standard /etc/ssh/sshd_config.standard
 COPY sshd_config.privileged /etc/ssh/sshd_config.privileged
 
 # Create user and set permissions
+# Host keys in /etc/ssh/ stay root-owned (for privileged/root mode)
+# Copy host keys to /etc/ssh/ve_keys/ owned by ve (for non-root mode)
 RUN groupadd -r -g 2137 ve && \
     useradd -m -r -s /bin/bash -u 2137 -g ve ve && \
     chmod +x /entrypoint.sh /sshkey.sh && \
-    chown -R ve:ve /var/run/sshd /run /volume /entrypoint.sh /etc/ssh
+    mkdir -p /etc/ssh/ve_keys && \
+    cp /etc/ssh/ssh_host_* /etc/ssh/ve_keys/ && \
+    chown -R ve:ve /etc/ssh/ve_keys /var/run/sshd /run /volume
 
 # Expose port
 EXPOSE 2137

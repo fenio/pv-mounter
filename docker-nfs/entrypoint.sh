@@ -34,6 +34,7 @@ NFS_Core_Param {
     Bind_addr = 0.0.0.0;
     Enable_NLM = false;
     Enable_RQUOTA = false;
+    allow_set_io_flusher_fail = true;
 }
 
 NFSv4 {

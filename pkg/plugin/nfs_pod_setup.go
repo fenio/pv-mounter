@@ -81,24 +81,19 @@ func selectNFSImage(image string) string {
 }
 
 // getNFSSecurityContext returns the security context for NFS-Ganesha container.
-// RunAsUser/RunAsGroup are set at the container level so ephemeral containers
-// run as root regardless of the workload pod's security context.
+// No RunAsUser is set so ephemeral containers inherit the workload pod's user.
 func getNFSSecurityContext() *corev1.SecurityContext {
 	allowPrivilegeEscalation := true
 	readOnlyRootFilesystem := false
-	runAsUser := int64(0)
-	runAsGroup := int64(0)
 	seccompProfile := corev1.SeccompProfile{
 		Type: corev1.SeccompProfileTypeUnconfined,
 	}
 	return &corev1.SecurityContext{
-		RunAsUser:                &runAsUser,
-		RunAsGroup:               &runAsGroup,
 		AllowPrivilegeEscalation: &allowPrivilegeEscalation,
 		ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
-			Add:  []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID", "NET_BIND_SERVICE"},
+			Add:  []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID"},
 		},
 		SeccompProfile: &seccompProfile,
 	}

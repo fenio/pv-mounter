@@ -58,11 +58,11 @@ func TestGetNFSSecurityContext(t *testing.T) {
 		if secCtx == nil {
 			t.Fatal("Expected non-nil security context")
 		}
-		if *secCtx.RunAsUser != 0 {
-			t.Errorf("Expected RunAsUser to be 0, got %d", *secCtx.RunAsUser)
+		if secCtx.RunAsUser != nil {
+			t.Error("Expected RunAsUser to be nil (inherit from pod)")
 		}
-		if *secCtx.RunAsGroup != 0 {
-			t.Errorf("Expected RunAsGroup to be 0, got %d", *secCtx.RunAsGroup)
+		if secCtx.RunAsGroup != nil {
+			t.Error("Expected RunAsGroup to be nil (inherit from pod)")
 		}
 		if *secCtx.AllowPrivilegeEscalation != true {
 			t.Error("Expected AllowPrivilegeEscalation to be true")
@@ -79,7 +79,7 @@ func TestGetNFSSecurityContext(t *testing.T) {
 			t.Errorf("Expected ALL capability to be dropped, got %v", secCtx.Capabilities.Drop)
 		}
 
-		requiredCaps := []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID", "NET_BIND_SERVICE"}
+		requiredCaps := []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID"}
 		addedCaps := make(map[corev1.Capability]bool)
 		for _, cap := range secCtx.Capabilities.Add {
 			addedCaps[cap] = true

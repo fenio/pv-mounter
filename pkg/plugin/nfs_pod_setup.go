@@ -143,12 +143,17 @@ func buildNFSEphemeralContainerSpec(name, volumeName, image string) corev1.Ephem
 	nonRootUser := int64(65534)
 	securityContext.RunAsUser = &nonRootUser
 
+	// Ephemeral containers use VFS FSAL instead of PROXY_V4 because
+	// PROXY_V4 needs reserved ports (<1024) which require root.
+	// VFS works since the volume is already mounted by the kubelet.
+	envVars := append(buildNFSEnvVars(), corev1.EnvVar{Name: "FORCE_VFS", Value: "true"})
+
 	return corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:            name,
 			Image:           imageToUse,
 			ImagePullPolicy: corev1.PullAlways,
-			Env:             buildNFSEnvVars(),
+			Env:             envVars,
 			SecurityContext: securityContext,
 			VolumeMounts: []corev1.VolumeMount{
 				{

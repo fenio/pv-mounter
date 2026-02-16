@@ -10,7 +10,14 @@ CONF="/tmp/ganesha/ganesha.conf"
 MOUNT_LINE=$(grep ' /volume ' /proc/mounts | head -1)
 FS_TYPE=$(echo "$MOUNT_LINE" | awk '{print $3}')
 
-if [ "$FS_TYPE" = "nfs" ] || [ "$FS_TYPE" = "nfs4" ]; then
+# FORCE_VFS=true skips PROXY_V4 and uses VFS FSAL even for NFS-backed volumes.
+# This is needed for ephemeral containers running as non-root, where PROXY_V4
+# can't use reserved ports required by most NFS servers.
+if [ "$FORCE_VFS" = "true" ]; then
+    echo "FORCE_VFS set, using VFS FSAL (fstype=$FS_TYPE)" >&2
+    FSAL_BLOCK="FSAL { Name = VFS; }"
+    EXPORT_PATH="Path = /volume; Filesystem_id = 1.1;"
+elif [ "$FS_TYPE" = "nfs" ] || [ "$FS_TYPE" = "nfs4" ]; then
     # Extract backend NFS server and path from mount source (e.g., "10.10.20.100:/mnt/storage/path")
     MOUNT_SOURCE=$(echo "$MOUNT_LINE" | awk '{print $1}')
     NFS_SERVER=$(echo "$MOUNT_SOURCE" | cut -d: -f1)

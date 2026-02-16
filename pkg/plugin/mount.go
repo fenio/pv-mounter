@@ -68,9 +68,14 @@ func init() {
 	})
 }
 
-// Mount establishes an SSHFS connection to mount a PVC to a local directory.
-func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
-	checkSSHFS()
+// Mount establishes a connection to mount a PVC to a local directory.
+// The backend parameter selects the mount method: "nfs" for NFS-Ganesha, anything else for SSHFS.
+func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit, backend string) error {
+	if backend == "nfs" {
+		checkNFSClient()
+	} else {
+		checkSSHFS()
+	}
 	if err := ValidateKubernetesName(namespace, "namespace"); err != nil {
 		return err
 	}
@@ -91,6 +96,12 @@ func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, need
 	canBeMounted, podUsingPVC, err := checkPVAccessMode(ctx, clientset, pvc, namespace)
 	if err != nil {
 		return err
+	}
+	if backend == "nfs" {
+		if canBeMounted {
+			return handleRWXNFS(ctx, clientset, namespace, pvcName, localMountPoint, debug, image, imageSecret, cpuLimit)
+		}
+		return handleRWONFS(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, debug, image)
 	}
 	if canBeMounted {
 		return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret, cpuLimit)

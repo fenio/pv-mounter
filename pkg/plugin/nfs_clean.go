@@ -1,4 +1,3 @@
-// Package plugin implements the core functionality for mounting and cleaning PVCs.
 package plugin
 
 import (
@@ -6,36 +5,20 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-// Clean unmounts a PVC and removes associated resources.
-// The backend parameter selects the cleanup method: "nfs" for NFS, anything else for SSHFS.
-func Clean(ctx context.Context, namespace, pvcName, localMountPoint, backend string) error {
-	if err := ValidateKubernetesName(namespace, "namespace"); err != nil {
-		return err
-	}
-	if err := ValidateKubernetesName(pvcName, "pvc-name"); err != nil {
-		return err
-	}
-
-	if backend == "nfs" {
-		return cleanNFS(ctx, namespace, pvcName, localMountPoint)
-	}
-
-	var umountCmd *exec.Cmd
-	if runtime.GOOS == "darwin" {
-		umountCmd = exec.CommandContext(ctx, "umount", localMountPoint)
-	} else {
-		umountCmd = exec.CommandContext(ctx, "fusermount", "-u", localMountPoint)
-	}
+// cleanNFS handles cleanup for NFS-mounted PVCs.
+func cleanNFS(ctx context.Context, namespace, pvcName, localMountPoint string) error {
+	// NFS always uses umount
+	umountCmd := exec.CommandContext(ctx, "umount", localMountPoint) // #nosec G204 -- localMountPoint is user-provided
 	umountCmd.Stdout = os.Stdout
 	umountCmd.Stderr = os.Stderr
 	if err := umountCmd.Run(); err != nil {
-		return fmt.Errorf("failed to unmount SSHFS: %w", err)
+		return fmt.Errorf("failed to unmount NFS: %w", err)
 	}
 	fmt.Printf("Unmounted %s successfully\n", localMountPoint)
 
@@ -44,10 +27,10 @@ func Clean(ctx context.Context, namespace, pvcName, localMountPoint, backend str
 		return err
 	}
 
-	// Look for a standalone pod with the PVC name label (RWX case)
+	// Look for a standalone NFS pod with the PVC name and backend=nfs label (RWX case)
 	podClient := clientset.CoreV1().Pods(namespace)
 	podList, err := podClient.List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("pvcName=%s,app=volume-exposer", pvcName),
+		LabelSelector: fmt.Sprintf("pvcName=%s,app=volume-exposer,backend=nfs", pvcName),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
@@ -74,12 +57,12 @@ func Clean(ctx context.Context, namespace, pvcName, localMountPoint, backend str
 		return nil
 	}
 
-	// RWO case: find the workload pod using the PVC and clean up ephemeral container
-	return cleanRWO(ctx, clientset, namespace, pvcName)
+	// RWO case: find the workload pod using the PVC and clean up NFS ephemeral container
+	return cleanNFSRWO(ctx, clientset, namespace, pvcName)
 }
 
-// cleanRWO handles cleanup for RWO volumes mounted via ephemeral containers.
-func cleanRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName string) error {
+// cleanNFSRWO handles cleanup for RWO volumes mounted via NFS ephemeral containers.
+func cleanNFSRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName string) error {
 	podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
@@ -98,35 +81,42 @@ func cleanRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, p
 	}
 	fmt.Printf("Port-forward process for pod %s killed successfully\n", podName)
 
-	err = killProcessInEphemeralContainer(ctx, clientset, namespace, podName)
+	err = killNFSProcessInEphemeralContainer(ctx, clientset, namespace, podName)
 	if err != nil {
-		return fmt.Errorf("failed to kill process in ephemeral container: %w", err)
+		return fmt.Errorf("failed to kill NFS process in ephemeral container: %w", err)
 	}
-	fmt.Printf("Process in ephemeral container killed successfully in pod %s\n", podName)
+	fmt.Printf("NFS process in ephemeral container killed successfully in pod %s\n", podName)
 
 	return nil
 }
 
-func killProcessInEphemeralContainer(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) error {
+// killNFSProcessInEphemeralContainer kills the ganesha.nfsd process in an NFS ephemeral container.
+func killNFSProcessInEphemeralContainer(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) error {
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get existing pod: %w", err)
 	}
 
-	if len(existingPod.Spec.EphemeralContainers) == 0 {
-		return fmt.Errorf("no ephemeral containers found in pod %s", podName)
+	// Find the NFS ephemeral container (name prefix nfs-ganesha-ephemeral-)
+	ephemeralContainerName := ""
+	for _, ec := range existingPod.Spec.EphemeralContainers {
+		if strings.HasPrefix(ec.Name, "nfs-ganesha-ephemeral-") {
+			ephemeralContainerName = ec.Name
+		}
+	}
+	if ephemeralContainerName == "" {
+		return fmt.Errorf("no NFS ephemeral container found in pod %s", podName)
 	}
 
-	ephemeralContainerName := existingPod.Spec.EphemeralContainers[0].Name
-	fmt.Printf("Ephemeral container name is %s\n", ephemeralContainerName)
+	fmt.Printf("NFS ephemeral container name is %s\n", ephemeralContainerName)
 
-	killCmd := []string{"pkill", "sshd"}
+	killCmd := []string{"pkill", "ganesha.nfsd"}
 
 	cmd := exec.CommandContext(ctx, "kubectl", append([]string{"exec", podName, "-n", namespace, "-c", ephemeralContainerName, "--"}, killCmd...)...) // #nosec G204 -- podName, namespace, and ephemeralContainerName are from validated Kubernetes resources
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to kill process in container %s of pod %s: %w", ephemeralContainerName, podName, err)
+		return fmt.Errorf("failed to kill NFS process in container %s of pod %s: %w", ephemeralContainerName, podName, err)
 	}
 	return nil
 }

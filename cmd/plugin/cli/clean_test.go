@@ -7,12 +7,20 @@ import (
 func TestCleanCmd(t *testing.T) {
 	cmd := cleanCmd()
 
-	if cmd.Use != "clean <namespace> <pvc-name> <local-mount-point>" {
-		t.Errorf("Expected Use to be 'clean <namespace> <pvc-name> <local-mount-point>', got '%s'", cmd.Use)
+	if cmd.Use != "clean [flags] <namespace> <pvc-name> <local-mount-point>" {
+		t.Errorf("Expected Use to be 'clean [flags] <namespace> <pvc-name> <local-mount-point>', got '%s'", cmd.Use)
 	}
 
 	if cmd.Short == "" {
 		t.Error("Expected Short description to be set")
+	}
+
+	backendFlag := cmd.Flags().Lookup("backend")
+	if backendFlag == nil {
+		t.Error("Expected --backend flag to be defined")
+	}
+	if backendFlag != nil && backendFlag.DefValue != "" {
+		t.Errorf("Expected --backend default to be empty, got '%s'", backendFlag.DefValue)
 	}
 }
 

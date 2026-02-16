@@ -15,6 +15,14 @@ func TestMountCmd(t *testing.T) {
 	if cmd.Short == "" {
 		t.Error("Expected Short description to be set")
 	}
+
+	backendFlag := cmd.Flags().Lookup("backend")
+	if backendFlag == nil {
+		t.Error("Expected --backend flag to be defined")
+	}
+	if backendFlag != nil && backendFlag.DefValue != "" {
+		t.Errorf("Expected --backend default to be empty, got '%s'", backendFlag.DefValue)
+	}
 }
 
 func TestMountCmdFlags(t *testing.T) {

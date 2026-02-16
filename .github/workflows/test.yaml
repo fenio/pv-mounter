@@ -64,11 +64,11 @@ jobs:
       - name: Create test PVCs and PODs
         run: kubectl apply -f test
 
-      - name: Install SSHFS
+      - name: Install SSHFS and NFS client
         uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
         with:
-          packages: sshfs openssh-client libfuse3-3
-          version: ${{ runner.arch }}-1.0
+          packages: sshfs openssh-client libfuse3-3 nfs-common
+          version: ${{ runner.arch }}-1.1
 
       - name: Build pv-mounter
         run: make bin
@@ -148,6 +148,27 @@ jobs:
           touch foo/bar
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-9 foo
+
+      - name: '[TEST-NFS] PVC with RWX access mode'
+        run: |
+          sudo ./bin/pv-mounter mount --backend nfs default pvc-1 foo
+          sudo touch foo/bar-nfs
+          ls -l foo/bar-nfs
+          sudo ./bin/pv-mounter clean --backend nfs default pvc-1 foo
+
+      - name: '[TEST-NFS] Mounted PVC with RWO access mode'
+        run: |
+          sudo ./bin/pv-mounter mount --backend nfs default pvc-3 foo
+          sudo touch foo/bar-nfs
+          ls -l foo/bar-nfs
+          sudo ./bin/pv-mounter clean --backend nfs default pvc-3 foo
+
+      - name: '[TEST-NFS] PVC with RWX access mode (NEEDS_ROOT)'
+        run: |
+          sudo ./bin/pv-mounter mount --backend nfs --needs-root default pvc-4 foo
+          sudo touch foo/bar-nfs
+          ls -l foo/bar-nfs
+          sudo ./bin/pv-mounter clean --backend nfs default pvc-4 foo
 
       - name: Delete PODs and PVCs
         run: kubectl delete -f test --force --grace-period=0

@@ -22,3 +22,18 @@ archives:
     ids:
     - pv-mounter
     name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^chore\(deps\)'
+      - '^Merge pull request'
+  groups:
+    - title: Features
+      regexp: '^feat'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^fix'
+      order: 1
+    - title: Other
+      order: 999

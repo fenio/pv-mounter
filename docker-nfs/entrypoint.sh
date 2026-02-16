@@ -13,8 +13,19 @@ FS_TYPE=$(echo "$MOUNT_LINE" | awk '{print $3}')
 # FORCE_VFS=true skips PROXY_V4 and uses VFS FSAL even for NFS-backed volumes.
 # This is needed for ephemeral containers running as non-root, where PROXY_V4
 # can't use reserved ports required by most NFS servers.
+# VFS FSAL rejects NFS mounts by checking /etc/mtab, so we create a modified
+# mtab that presents /volume as a local filesystem. The actual I/O goes through
+# the kernel VFS layer which handles NFS transparently.
 if [ "$FORCE_VFS" = "true" ]; then
     echo "FORCE_VFS set, using VFS FSAL (fstype=$FS_TYPE)" >&2
+    if [ "$FS_TYPE" = "nfs" ] || [ "$FS_TYPE" = "nfs4" ]; then
+        DEVICE=$(echo "$MOUNT_LINE" | awk '{print $1}')
+        OPTIONS=$(echo "$MOUNT_LINE" | awk '{print $4}')
+        grep -v ' /volume ' /proc/mounts > /tmp/ganesha/mtab
+        echo "$DEVICE /volume ext4 $OPTIONS 0 0" >> /tmp/ganesha/mtab
+        ln -sf /tmp/ganesha/mtab /etc/mtab
+        echo "Created synthetic /etc/mtab to present /volume as ext4" >&2
+    fi
     FSAL_BLOCK="FSAL { Name = VFS; }"
     EXPORT_PATH="Path = /volume; Filesystem_id = 1.1;"
 elif [ "$FS_TYPE" = "nfs" ] || [ "$FS_TYPE" = "nfs4" ]; then

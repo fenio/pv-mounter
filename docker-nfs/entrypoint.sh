@@ -1,7 +1,10 @@
 #!/bin/bash
 set -e
 
-CONF="/etc/ganesha/ganesha.conf"
+# All writable paths go to /tmp so this works as both root and non-root
+# (ephemeral containers inherit the pod's user which may be non-root)
+mkdir -p /tmp/ganesha
+CONF="/tmp/ganesha/ganesha.conf"
 
 # Detect if /volume is an NFS mount by checking /proc/mounts
 MOUNT_LINE=$(grep ' /volume ' /proc/mounts | head -1)
@@ -16,9 +19,16 @@ if [ "$FS_TYPE" = "nfs" ] || [ "$FS_TYPE" = "nfs4" ]; then
     echo "Detected NFS-backed volume: server=$NFS_SERVER path=$NFS_PATH" >&2
     echo "Using PROXY_V4 FSAL to re-export" >&2
 
-    # Write to /tmp in case /etc is not writable (e.g., ephemeral containers)
-    CONF="/tmp/ganesha.conf"
-    cat > "$CONF" <<EOF
+    FSAL_BLOCK="FSAL { Name = PROXY_V4; Srv_Addr = ${NFS_SERVER}; }"
+    EXPORT_PATH="Path = ${NFS_PATH};"
+else
+    echo "Detected local/block-backed volume (fstype=$FS_TYPE), using VFS FSAL" >&2
+
+    FSAL_BLOCK="FSAL { Name = VFS; }"
+    EXPORT_PATH="Path = /volume; Filesystem_id = 1.1;"
+fi
+
+cat > "$CONF" <<EOF
 NFS_Core_Param {
     NFS_Protocols = 4;
     Bind_addr = 0.0.0.0;
@@ -28,29 +38,25 @@ NFS_Core_Param {
 
 NFSv4 {
     Grace_Period = 0;
+    RecoveryBackend = fs_ng;
+    RecoveryRoot = /tmp/ganesha;
 }
 
 EXPORT {
     Export_Id = 1;
-    Path = ${NFS_PATH};
+    ${EXPORT_PATH}
     Pseudo = /volume;
     Access_Type = RW;
     Squash = No_Root_Squash;
     SecType = sys;
     Disable_ACL = true;
 
-    FSAL {
-        Name = PROXY_V4;
-        Srv_Addr = ${NFS_SERVER};
-    }
+    ${FSAL_BLOCK}
 }
 
 LOG {
     Default_Log_Level = WARN;
 }
 EOF
-else
-    echo "Detected local/block-backed volume (fstype=$FS_TYPE), using VFS FSAL" >&2
-fi
 
-exec /usr/bin/ganesha.nfsd -F -L /proc/self/fd/2 -f "$CONF"
+exec /usr/bin/ganesha.nfsd -F -L /proc/self/fd/2 -p /tmp/ganesha/ganesha.pid -f "$CONF"

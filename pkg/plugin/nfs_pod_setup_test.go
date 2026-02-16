@@ -169,16 +169,17 @@ func TestSelectNFSImage(t *testing.T) {
 }
 
 func TestBuildNFSEnvVars(t *testing.T) {
-	t.Run("NFS env vars only have NEEDS_ROOT", func(t *testing.T) {
+	t.Run("NFS env vars", func(t *testing.T) {
 		envVars := buildNFSEnvVars()
-		if len(envVars) != 1 {
-			t.Fatalf("Expected 1 env var, got %d", len(envVars))
+		envMap := make(map[string]string)
+		for _, env := range envVars {
+			envMap[env.Name] = env.Value
 		}
-		if envVars[0].Name != "NEEDS_ROOT" {
-			t.Errorf("Expected env var name 'NEEDS_ROOT', got '%s'", envVars[0].Name)
+		if envMap["NEEDS_ROOT"] != "true" {
+			t.Errorf("Expected NEEDS_ROOT='true', got '%s'", envMap["NEEDS_ROOT"])
 		}
-		if envVars[0].Value != "true" {
-			t.Errorf("Expected env var value 'true', got '%s'", envVars[0].Value)
+		if envMap["LOG_LEVEL"] != "EVENT" {
+			t.Errorf("Expected LOG_LEVEL='EVENT', got '%s'", envMap["LOG_LEVEL"])
 		}
 	})
 }

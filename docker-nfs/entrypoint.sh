@@ -56,7 +56,7 @@ EXPORT {
 }
 
 LOG {
-    Default_Log_Level = WARN;
+    Default_Log_Level = ${LOG_LEVEL:-WARN};
 }
 EOF
 

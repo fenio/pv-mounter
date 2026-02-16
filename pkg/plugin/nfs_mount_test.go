@@ -30,7 +30,7 @@ func TestBuildNFSMountCommand(t *testing.T) {
 				"mount",
 				"-t", "nfs",
 				"-o", "nfsvers=4,port=12345,tcp",
-				"localhost:/volume",
+				"127.0.0.1:/volume",
 				"/mnt/pvc",
 			}
 
@@ -47,7 +47,7 @@ func TestBuildNFSMountCommand(t *testing.T) {
 			expectedArgs := []string{
 				"mount", "-t", "nfs4",
 				"-o", "port=12345,vers=4.2",
-				"localhost:/volume",
+				"127.0.0.1:/volume",
 				"/mnt/pvc",
 			}
 

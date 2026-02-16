@@ -85,14 +85,14 @@ func getNFSSecurityContext() *corev1.SecurityContext {
 	allowPrivilegeEscalation := true
 	readOnlyRootFilesystem := false
 	seccompProfile := corev1.SeccompProfile{
-		Type: corev1.SeccompProfileTypeRuntimeDefault,
+		Type: corev1.SeccompProfileTypeUnconfined,
 	}
 	return &corev1.SecurityContext{
 		AllowPrivilegeEscalation: &allowPrivilegeEscalation,
 		ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
-			Add:  []corev1.Capability{"DAC_READ_SEARCH", "SYS_RESOURCE"},
+			Add:  []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID"},
 		},
 		SeccompProfile: &seccompProfile,
 	}

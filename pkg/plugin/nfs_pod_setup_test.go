@@ -73,25 +73,19 @@ func TestGetNFSSecurityContext(t *testing.T) {
 			t.Errorf("Expected ALL capability to be dropped, got %v", secCtx.Capabilities.Drop)
 		}
 
-		hasDACReadSearch := false
-		hasSysResource := false
+		requiredCaps := []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID"}
+		addedCaps := make(map[corev1.Capability]bool)
 		for _, cap := range secCtx.Capabilities.Add {
-			if cap == "DAC_READ_SEARCH" {
-				hasDACReadSearch = true
-			}
-			if cap == "SYS_RESOURCE" {
-				hasSysResource = true
-			}
+			addedCaps[cap] = true
 		}
-		if !hasDACReadSearch {
-			t.Error("Expected DAC_READ_SEARCH capability")
-		}
-		if !hasSysResource {
-			t.Error("Expected SYS_RESOURCE capability")
+		for _, cap := range requiredCaps {
+			if !addedCaps[cap] {
+				t.Errorf("Expected %s capability", cap)
+			}
 		}
 
-		if secCtx.SeccompProfile == nil || secCtx.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
-			t.Error("Expected SeccompProfile to be RuntimeDefault")
+		if secCtx.SeccompProfile == nil || secCtx.SeccompProfile.Type != corev1.SeccompProfileTypeUnconfined {
+			t.Error("Expected SeccompProfile to be Unconfined")
 		}
 	})
 }

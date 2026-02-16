@@ -25,7 +25,7 @@ RUN groupadd -r -g 2137 ve && \
     chmod +x /entrypoint.sh /sshkey.sh && \
     mkdir -p /etc/ssh/ve_keys && \
     cp /etc/ssh/ssh_host_* /etc/ssh/ve_keys/ && \
-    chown -R ve:ve /etc/ssh/ve_keys /var/run/sshd /run /volume
+    chown -R ve:ve /etc/ssh/ve_keys /volume
 
 # Expose port
 EXPOSE 2137

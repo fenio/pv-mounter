@@ -151,24 +151,24 @@ jobs:
 
       - name: '[TEST-NFS] PVC with RWX access mode'
         run: |
-          sudo ./bin/pv-mounter mount --backend nfs default pvc-1 foo
+          sudo KUBECONFIG=$HOME/.kube/config ./bin/pv-mounter mount --backend nfs default pvc-1 foo
           sudo touch foo/bar-nfs
           ls -l foo/bar-nfs
-          sudo ./bin/pv-mounter clean --backend nfs default pvc-1 foo
+          sudo KUBECONFIG=$HOME/.kube/config ./bin/pv-mounter clean --backend nfs default pvc-1 foo
 
       - name: '[TEST-NFS] Mounted PVC with RWO access mode'
         run: |
-          sudo ./bin/pv-mounter mount --backend nfs default pvc-3 foo
+          sudo KUBECONFIG=$HOME/.kube/config ./bin/pv-mounter mount --backend nfs default pvc-3 foo
           sudo touch foo/bar-nfs
           ls -l foo/bar-nfs
-          sudo ./bin/pv-mounter clean --backend nfs default pvc-3 foo
+          sudo KUBECONFIG=$HOME/.kube/config ./bin/pv-mounter clean --backend nfs default pvc-3 foo
 
       - name: '[TEST-NFS] PVC with RWX access mode (NEEDS_ROOT)'
         run: |
-          sudo ./bin/pv-mounter mount --backend nfs --needs-root default pvc-4 foo
+          sudo KUBECONFIG=$HOME/.kube/config ./bin/pv-mounter mount --backend nfs --needs-root default pvc-4 foo
           sudo touch foo/bar-nfs
           ls -l foo/bar-nfs
-          sudo ./bin/pv-mounter clean --backend nfs default pvc-4 foo
+          sudo KUBECONFIG=$HOME/.kube/config ./bin/pv-mounter clean --backend nfs default pvc-4 foo
 
       - name: Delete PODs and PVCs
         run: kubectl delete -f test --force --grace-period=0

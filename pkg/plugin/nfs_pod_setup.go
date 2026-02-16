@@ -133,9 +133,14 @@ func createNFSEphemeralContainer(ctx context.Context, clientset *kubernetes.Clie
 }
 
 // buildNFSEphemeralContainerSpec creates the specification for an NFS ephemeral container.
+// Uses a non-root user (65534/nobody) to comply with pods that have runAsNonRoot: true.
 func buildNFSEphemeralContainerSpec(name, volumeName, image string) corev1.EphemeralContainer {
 	imageToUse := selectNFSImage(image)
 	securityContext := getNFSSecurityContext()
+	// Ephemeral containers must respect the pod's runAsNonRoot policy.
+	// Set a non-root UID; capabilities handle file access.
+	nonRootUser := int64(65534)
+	securityContext.RunAsUser = &nonRootUser
 
 	return corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{

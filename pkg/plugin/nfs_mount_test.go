@@ -29,7 +29,7 @@ func TestBuildNFSMountCommand(t *testing.T) {
 			expectedArgs := []string{
 				"mount",
 				"-t", "nfs",
-				"-o", "vers=4,port=12345,locallocks",
+				"-o", "nfsvers=4,port=12345,tcp",
 				"localhost:/volume",
 				"/mnt/pvc",
 			}

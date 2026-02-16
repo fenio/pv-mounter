@@ -16,6 +16,8 @@ if [ "$FS_TYPE" = "nfs" ] || [ "$FS_TYPE" = "nfs4" ]; then
     echo "Detected NFS-backed volume: server=$NFS_SERVER path=$NFS_PATH" >&2
     echo "Using PROXY_V4 FSAL to re-export" >&2
 
+    # Write to /tmp in case /etc is not writable (e.g., ephemeral containers)
+    CONF="/tmp/ganesha.conf"
     cat > "$CONF" <<EOF
 NFS_Core_Param {
     NFS_Protocols = 4;

@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
-	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -22,16 +21,12 @@ const (
 	// ImageVersion specifies the container image version for volume-exposer
 	ImageVersion = "def4bdfaf8"
 
-	// Image is the default non-privileged container image
+	// Image is the default container image
 	Image = "bfenski/volume-exposer:" + ImageVersion
-	// PrivilegedImage is the privileged container image for root access
-	PrivilegedImage = "bfenski/volume-exposer-privileged:" + ImageVersion
 	// DefaultUserGroup is the default user and group ID
 	DefaultUserGroup int64 = 2137
 	// DefaultSSHPort is the default SSH port for the SSH server
 	DefaultSSHPort int = 2137
-	// ProxySSHPort is the SSH port used by proxy pods
-	ProxySSHPort int = 6666
 
 	// CPURequest is the default CPU request for containers
 	CPURequest = "10m"
@@ -73,13 +68,6 @@ func init() {
 	})
 }
 
-// mountConfig holds configuration for mounting operations.
-type mountConfig struct {
-	role            string
-	sshPort         int
-	originalPodName string
-}
-
 // Mount establishes an SSHFS connection to mount a PVC to a local directory.
 func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
 	checkSSHFS()
@@ -107,7 +95,7 @@ func Mount(ctx context.Context, namespace, pvcName, localMountPoint string, need
 	if canBeMounted {
 		return handleRWX(ctx, clientset, namespace, pvcName, localMountPoint, needsRoot, debug, image, imageSecret, cpuLimit)
 	}
-	return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, needsRoot, debug, image, imageSecret, cpuLimit)
+	return handleRWO(ctx, clientset, namespace, pvcName, localMountPoint, podUsingPVC, needsRoot, debug, image)
 }
 
 // validateMountPoint checks if the local mount point exists.
@@ -131,8 +119,8 @@ func generateAndDebugKeys(debug bool) (privateKey, publicKey string, err error) 
 }
 
 // setupPodAndWait creates a pod and waits for it to be ready.
-func setupPodAndWait(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey string, config mountConfig, needsRoot bool, image, imageSecret, cpuLimit string) (podName string, port int, err error) {
-	podName, port, err = setupPod(ctx, clientset, namespace, pvcName, publicKey, config.role, config.sshPort, config.originalPodName, needsRoot, image, imageSecret, cpuLimit)
+func setupPodAndWait(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey string, needsRoot bool, image, imageSecret, cpuLimit string) (podName string, port int, err error) {
+	podName, port, err = setupPod(ctx, clientset, namespace, pvcName, publicKey, needsRoot, image, imageSecret, cpuLimit)
 	if err != nil {
 		return "", 0, err
 	}
@@ -143,11 +131,8 @@ func setupPodAndWait(ctx context.Context, clientset *kubernetes.Clientset, names
 }
 
 // setupPortForwardAndMount establishes port forwarding and mounts the volume.
-func setupPortForwardAndMount(ctx context.Context, namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot, debug bool, isProxyMode bool) error {
+func setupPortForwardAndMount(ctx context.Context, namespace, podName string, port int, localMountPoint, pvcName, privateKey string, needsRoot, debug bool) error {
 	timeout := 30 * time.Second
-	if isProxyMode {
-		timeout = 60 * time.Second
-	}
 	pfCmd, err := setupPortForwarding(ctx, namespace, podName, port, debug, timeout)
 	if err != nil {
 		return err
@@ -167,7 +152,7 @@ func checkPVAccessMode(ctx context.Context, clientset *kubernetes.Clientset, pvc
 		return true, "", fmt.Errorf("failed to get PV: %w", err)
 	}
 
-	if !slices.Contains(pv.Spec.AccessModes, corev1.ReadWriteOnce) {
+	if !containsAccessMode(pv.Spec.AccessModes, corev1.ReadWriteOnce) {
 		return true, "", nil
 	}
 
@@ -181,6 +166,16 @@ func checkPVAccessMode(ctx context.Context, clientset *kubernetes.Clientset, pvc
 		return false, podName, nil
 	}
 	return true, "", nil
+}
+
+// containsAccessMode checks if a slice of access modes contains the specified mode.
+func containsAccessMode(modes []corev1.PersistentVolumeAccessMode, mode corev1.PersistentVolumeAccessMode) bool {
+	for _, m := range modes {
+		if m == mode {
+			return true
+		}
+	}
+	return false
 }
 
 // findPodUsingPVC finds a pod that is using the specified PVC.
@@ -208,13 +203,9 @@ func checkPVCUsage(ctx context.Context, clientset kubernetes.Interface, namespac
 }
 
 // generatePodNameAndPort generates a unique pod name and random port.
-func generatePodNameAndPort(role string) (string, int) {
+func generatePodNameAndPort() (string, int) {
 	suffix := randSeq(5)
-	baseName := "volume-exposer"
-	if role == "proxy" {
-		baseName = "volume-exposer-proxy"
-	}
-	podName := fmt.Sprintf("%s-%s", baseName, suffix)
+	podName := fmt.Sprintf("volume-exposer-%s", suffix)
 	portBig, err := crand.Int(crand.Reader, big.NewInt(EphemeralPortRange))
 	if err != nil {
 		return podName, MinEphemeralPort

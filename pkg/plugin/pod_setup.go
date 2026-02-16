@@ -14,9 +14,9 @@ import (
 )
 
 // setupPod creates a new pod for exposing a PVC via SSH.
-func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) (string, int, error) {
-	podName, port := generatePodNameAndPort(role)
-	pod := createPodSpec(podName, port, pvcName, publicKey, role, sshPort, originalPodName, needsRoot, image, imageSecret, cpuLimit)
+func setupPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey string, needsRoot bool, image, imageSecret, cpuLimit string) (string, int, error) {
+	podName, port := generatePodNameAndPort()
+	pod := createPodSpec(podName, port, pvcName, publicKey, needsRoot, image, imageSecret, cpuLimit)
 	if _, err := clientset.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
 		return "", 0, fmt.Errorf("failed to create pod: %w", err)
 	}
@@ -40,23 +40,10 @@ func waitForPodReady(ctx context.Context, clientset *kubernetes.Clientset, names
 	})
 }
 
-// getPodIP retrieves the IP address of a pod.
-func getPodIP(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) (string, error) {
-	pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to get pod IP: %w", err)
-	}
-	return pod.Status.PodIP, nil
-}
-
 // createPodSpec creates the pod specification for volume exposer.
-func createPodSpec(podName string, port int, pvcName, publicKey, role string, sshPort int, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) *corev1.Pod {
-	if sshPort < 0 || sshPort > 65535 {
-		sshPort = DefaultSSHPort
-	}
-
-	container := buildContainer(publicKey, role, sshPort, needsRoot, image, cpuLimit)
-	labels := buildPodLabels(pvcName, port, originalPodName)
+func createPodSpec(podName string, port int, pvcName, publicKey string, needsRoot bool, image, imageSecret, cpuLimit string) *corev1.Pod {
+	container := buildContainer(publicKey, needsRoot, image, cpuLimit)
+	labels := buildPodLabels(pvcName, port)
 	imagePullSecrets := buildImagePullSecrets(imageSecret)
 	podSecurityContext := buildPodSecurityContext(needsRoot)
 
@@ -72,17 +59,15 @@ func createPodSpec(podName string, port int, pvcName, publicKey, role string, ss
 		},
 	}
 
-	if role != "proxy" {
-		attachPVCToPod(pod, pvcName)
-	}
+	attachPVCToPod(pod, pvcName)
 
 	return pod
 }
 
 // buildContainer creates the container specification for volume exposer.
-func buildContainer(publicKey, role string, sshPort int, needsRoot bool, image, cpuLimit string) corev1.Container {
-	envVars := buildEnvVars(publicKey, role, sshPort, needsRoot)
-	imageToUse := selectImage(image, needsRoot)
+func buildContainer(publicKey string, needsRoot bool, image, cpuLimit string) corev1.Container {
+	envVars := buildEnvVars(publicKey, needsRoot)
+	imageToUse := selectImage(image)
 	resources := buildResourceRequirements(cpuLimit)
 
 	return corev1.Container{
@@ -90,7 +75,7 @@ func buildContainer(publicKey, role string, sshPort int, needsRoot bool, image, 
 		Image:           imageToUse,
 		ImagePullPolicy: corev1.PullAlways,
 		Ports: []corev1.ContainerPort{
-			{ContainerPort: int32(sshPort)}, // #nosec G115 -- sshPort is validated to be within valid port range (1024-65535)
+			{ContainerPort: int32(DefaultSSHPort)},
 		},
 		Env:             envVars,
 		SecurityContext: getSecurityContext(needsRoot),
@@ -99,28 +84,17 @@ func buildContainer(publicKey, role string, sshPort int, needsRoot bool, image, 
 }
 
 // buildEnvVars creates environment variables for the container.
-func buildEnvVars(publicKey, role string, sshPort int, needsRoot bool) []corev1.EnvVar {
-	envVars := []corev1.EnvVar{
+func buildEnvVars(publicKey string, needsRoot bool) []corev1.EnvVar {
+	return []corev1.EnvVar{
 		{Name: "SSH_PUBLIC_KEY", Value: publicKey},
-		{Name: "SSH_PORT", Value: strconv.Itoa(sshPort)},
 		{Name: "NEEDS_ROOT", Value: strconv.FormatBool(needsRoot)},
 	}
-	if role == "standalone" || role == "proxy" {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "ROLE",
-			Value: role,
-		})
-	}
-	return envVars
 }
 
-// selectImage selects the appropriate container image based on requirements.
-func selectImage(image string, needsRoot bool) string {
+// selectImage selects the appropriate container image.
+func selectImage(image string) string {
 	if image != "" {
 		return image
-	}
-	if needsRoot {
-		return PrivilegedImage
 	}
 	return Image
 }
@@ -145,16 +119,12 @@ func buildResourceRequirements(cpuLimit string) corev1.ResourceRequirements {
 }
 
 // buildPodLabels creates labels for the pod.
-func buildPodLabels(pvcName string, port int, originalPodName string) map[string]string {
-	labels := map[string]string{
+func buildPodLabels(pvcName string, port int) map[string]string {
+	return map[string]string{
 		"app":        "volume-exposer",
 		"pvcName":    pvcName,
 		"portNumber": strconv.Itoa(port),
 	}
-	if originalPodName != "" {
-		labels["originalPodName"] = originalPodName
-	}
-	return labels
 }
 
 // buildImagePullSecrets creates image pull secrets if specified.

@@ -16,7 +16,7 @@ func cleanCmd() *cobra.Command {
 		Long: `Clean up resources created by pv-mounter.
 
 This command unmounts the local directory, terminates port-forwarding,
-removes any proxy pods created, and cleans up ephemeral containers.`,
+removes any standalone pods created, and cleans up ephemeral containers.`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(_ *cobra.Command, args []string) error {
 			namespace := args[0]
@@ -46,7 +46,7 @@ Examples:
   kubectl pv-mounter clean default my-pvc /mnt/data
 
 Notes:
-  - This command attempts to remove all resources created by 'mount', including proxy pods and port forwarding.
+  - This command attempts to remove all resources created by 'mount', including standalone pods and port forwarding.
   - Ephemeral containers cannot be fully deleted due to Kubernetes limitations. However, their processes will be terminated.
 `)
 

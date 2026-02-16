@@ -14,7 +14,8 @@ RUN apt-get update && \
 # Copy scripts and configuration files
 COPY entrypoint.sh /entrypoint.sh
 COPY sshkey.sh /sshkey.sh
-COPY sshd_config.standard /etc/ssh/sshd_config
+COPY sshd_config.standard /etc/ssh/sshd_config.standard
+COPY sshd_config.privileged /etc/ssh/sshd_config.privileged
 
 # Create user and set permissions
 RUN groupadd -r -g 2137 ve && \
@@ -24,9 +25,6 @@ RUN groupadd -r -g 2137 ve && \
 
 # Expose port
 EXPOSE 2137
-
-# Switch to non-root user
-USER ve
 
 # Entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

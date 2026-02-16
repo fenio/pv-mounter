@@ -13,16 +13,10 @@ func handleRWX(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 		return err
 	}
 
-	config := mountConfig{
-		role:            "standalone",
-		sshPort:         DefaultSSHPort,
-		originalPodName: "",
-	}
-
-	podName, port, err := setupPodAndWait(ctx, clientset, namespace, pvcName, publicKey, config, needsRoot, image, imageSecret, cpuLimit)
+	podName, port, err := setupPodAndWait(ctx, clientset, namespace, pvcName, publicKey, needsRoot, image, imageSecret, cpuLimit)
 	if err != nil {
 		return err
 	}
 
-	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, false)
+	return setupPortForwardAndMount(ctx, namespace, podName, port, localMountPoint, pvcName, privateKey, needsRoot, debug)
 }

@@ -27,7 +27,7 @@ func RootCmd() *cobra.Command {
 		Long: `pv-mounter is a kubectl plugin that allows you to easily mount and unmount
 Kubernetes PersistentVolumeClaims (PVCs) locally via SSHFS.
 
-It transparently manages proxy pods, ephemeral containers, port-forwarding,
+It transparently manages pods, ephemeral containers, port-forwarding,
 and SSHFS connections.`,
 	}
 

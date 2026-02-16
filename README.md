@@ -9,7 +9,6 @@
 [![GitHub issues](https://img.shields.io/github/issues/fenio/pv-mounter)](https://github.com/fenio/pv-mounter/issues)
 ![GitHub all releases](https://img.shields.io/github/downloads/fenio/pv-mounter/total)
 ![Docker Pulls](https://img.shields.io/docker/pulls/bfenski/volume-exposer?label=volume-exposer%20-%20docker%20pulls)
-![Docker Pulls](https://img.shields.io/docker/pulls/bfenski/volume-exposer-privileged?label=volume-exposer-privileged%20-%20docker%20pulls)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/fenio/pv-mounter/badge)](https://scorecard.dev/viewer/?uri=github.com/fenio/pv-mounter)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/9551/badge)](https://www.bestpractices.dev/projects/9551)
 [![codecov](https://codecov.io/gh/fenio/pv-mounter/graph/badge.svg?token=DHYZ71SVDV)](https://codecov.io/gh/fenio/pv-mounter)
@@ -54,10 +53,8 @@ It performs a few tasks. In the case of volumes with RWX (ReadWriteMany) access 
 
 For already mounted RWO volumes, it's a bit more complex:
 
-* Spawns a POD with a minimalistic image that contains an SSH daemon and acts as a proxy to an ephemeral container.
-* Creates an ephemeral container within the POD that currently mounts the volume.
-* From that ephemeral container, establishes a reverse SSH tunnel to the proxy POD.
-* Creates a port-forward to the proxy POD onto the port exposed by the tunnel to make it locally accessible.
+* Creates an ephemeral container with an SSH daemon within the POD that currently mounts the volume.
+* Creates a port-forward directly to the workload POD to make it locally accessible.
 * Mounts the volume locally using SSHFS.
 
 

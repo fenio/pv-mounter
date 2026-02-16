@@ -7,44 +7,23 @@ import (
 )
 
 // handleRWO handles mounting of RWO (ReadWriteOnce) volumes that are already mounted.
-func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image, imageSecret, cpuLimit string) error {
+func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, localMountPoint string, podUsingPVC string, needsRoot, debug bool, image string) error {
 	privateKey, publicKey, err := generateAndDebugKeys(debug)
 	if err != nil {
 		return err
 	}
 
-	proxyPodName, port, err := setupProxyPod(ctx, clientset, namespace, pvcName, publicKey, podUsingPVC, needsRoot, image, imageSecret, cpuLimit)
-	if err != nil {
+	// Generate random local port for port-forward
+	_, localPort := generatePodNameAndPort()
+
+	// Inject ephemeral container with sshd (uses DefaultSSHPort 2137)
+	if err := createEphemeralContainer(ctx, clientset, namespace, podUsingPVC, publicKey, needsRoot, image); err != nil {
+		return err
+	}
+	if err := waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, debug); err != nil {
 		return err
 	}
 
-	if err := setupEphemeralContainerWithTunnel(ctx, clientset, namespace, podUsingPVC, proxyPodName, privateKey, publicKey, needsRoot, debug, image); err != nil {
-		return err
-	}
-
-	return setupPortForwardAndMount(ctx, namespace, proxyPodName, port, localMountPoint, pvcName, privateKey, needsRoot, debug, true)
-}
-
-// setupProxyPod creates a proxy pod for RWO volume access.
-func setupProxyPod(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, publicKey, originalPodName string, needsRoot bool, image, imageSecret, cpuLimit string) (string, int, error) {
-	config := mountConfig{
-		role:            "proxy",
-		sshPort:         ProxySSHPort,
-		originalPodName: originalPodName,
-	}
-	return setupPodAndWait(ctx, clientset, namespace, pvcName, publicKey, config, needsRoot, image, imageSecret, cpuLimit)
-}
-
-// setupEphemeralContainerWithTunnel creates an ephemeral container and establishes SSH tunnel.
-func setupEphemeralContainerWithTunnel(ctx context.Context, clientset *kubernetes.Clientset, namespace, podUsingPVC, proxyPodName, privateKey, publicKey string, needsRoot, debug bool, image string) error {
-	proxyPodIP, err := getPodIP(ctx, clientset, namespace, proxyPodName)
-	if err != nil {
-		return err
-	}
-
-	if err := createEphemeralContainer(ctx, clientset, namespace, podUsingPVC, privateKey, publicKey, proxyPodIP, needsRoot, image); err != nil {
-		return err
-	}
-
-	return waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, debug)
+	// Port-forward directly to workload pod and mount
+	return setupPortForwardAndMount(ctx, namespace, podUsingPVC, localPort, localMountPoint, pvcName, privateKey, needsRoot, debug)
 }

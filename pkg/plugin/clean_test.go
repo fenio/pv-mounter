@@ -98,3 +98,51 @@ func TestKillProcessInEphemeralContainer(t *testing.T) {
 		}
 	})
 }
+
+func TestFindPodUsingPVC(t *testing.T) {
+	t.Run("Pod using PVC found", func(t *testing.T) {
+		pods := []corev1.Pod{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "pod-1"},
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
+						{
+							Name: "data",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "my-pvc",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		result := findPodUsingPVC(pods, "my-pvc")
+		if result != "pod-1" {
+			t.Errorf("Expected 'pod-1', got '%s'", result)
+		}
+	})
+
+	t.Run("No pod using PVC", func(t *testing.T) {
+		pods := []corev1.Pod{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "pod-1"},
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
+						{
+							Name: "data",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		}
+		result := findPodUsingPVC(pods, "my-pvc")
+		if result != "" {
+			t.Errorf("Expected empty string, got '%s'", result)
+		}
+	})
+}

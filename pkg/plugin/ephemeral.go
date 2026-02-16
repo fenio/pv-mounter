@@ -15,7 +15,7 @@ import (
 )
 
 // createEphemeralContainer creates an ephemeral container in an existing pod.
-func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) error {
+func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, publicKey string, needsRoot bool, image string) error {
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get existing pod: %w", err)
@@ -27,7 +27,7 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 	ephemeralContainerName := fmt.Sprintf("volume-exposer-ephemeral-%s", randSeq(5))
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
 
-	ephemeralContainer := buildEphemeralContainerSpec(ephemeralContainerName, volumeName, privateKey, publicKey, proxyPodIP, needsRoot, image)
+	ephemeralContainer := buildEphemeralContainerSpec(ephemeralContainerName, volumeName, publicKey, needsRoot, image)
 
 	if err := patchPodWithEphemeralContainer(ctx, clientset, namespace, podName, ephemeralContainer); err != nil {
 		return err
@@ -38,8 +38,8 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 }
 
 // buildEphemeralContainerSpec creates the specification for an ephemeral container.
-func buildEphemeralContainerSpec(name, volumeName, privateKey, publicKey, proxyPodIP string, needsRoot bool, image string) corev1.EphemeralContainer {
-	imageToUse := selectImage(image, needsRoot)
+func buildEphemeralContainerSpec(name, volumeName, publicKey string, needsRoot bool, image string) corev1.EphemeralContainer {
+	imageToUse := selectImage(image)
 	securityContext := getSecurityContext(needsRoot)
 
 	return corev1.EphemeralContainer{
@@ -48,9 +48,6 @@ func buildEphemeralContainerSpec(name, volumeName, privateKey, publicKey, proxyP
 			Image:           imageToUse,
 			ImagePullPolicy: corev1.PullAlways,
 			Env: []corev1.EnvVar{
-				{Name: "ROLE", Value: "ephemeral"},
-				{Name: "SSH_PRIVATE_KEY", Value: privateKey},
-				{Name: "PROXY_POD_IP", Value: proxyPodIP},
 				{Name: "SSH_PUBLIC_KEY", Value: publicKey},
 				{Name: "NEEDS_ROOT", Value: strconv.FormatBool(needsRoot)},
 			},

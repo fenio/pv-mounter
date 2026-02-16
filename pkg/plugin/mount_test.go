@@ -2,42 +2,32 @@ package plugin
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
-	"slices"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestValidateMountPoint(t *testing.T) {
 	t.Run("Mount point exists", func(t *testing.T) {
-		// Create a temporary directory to simulate an existing mount point
 		tempDir := t.TempDir()
 
-		// Call the function
 		err := validateMountPoint(tempDir)
 
-		// Check the result
 		if err != nil {
 			t.Errorf("validateMountPoint(%s) returned an unexpected error: %v", tempDir, err)
 		}
 	})
 
 	t.Run("Mount point does not exist", func(t *testing.T) {
-		// Define a path that does not exist
 		nonExistentPath := "/path/that/does/not/exist"
 
-		// Call the function
 		err := validateMountPoint(nonExistentPath)
 
-		// Check the result
 		if err == nil {
 			t.Errorf("validateMountPoint(%s) should have returned an error, but it did not", nonExistentPath)
 		}
@@ -45,106 +35,35 @@ func TestValidateMountPoint(t *testing.T) {
 }
 
 func TestValidateMountPoint_FileInsteadOfDirectory(t *testing.T) {
-	// Create a temporary file to simulate a file instead of a directory
 	tempFile, err := os.CreateTemp("", "testfile")
 	if err != nil {
 		t.Fatalf("Failed to create temporary file: %v", err)
 	}
 	defer func() { _ = os.Remove(tempFile.Name()) }()
 
-	// Call the function
 	err = validateMountPoint(tempFile.Name())
 
-	// Check the result
 	if err != nil {
 		t.Errorf("validateMountPoint(%s) returned an unexpected error: %v", tempFile.Name(), err)
 	}
 }
 
-func TestGetPodIP(t *testing.T) {
-	namespace := "default"
-	podName := "test-pod"
-	podIP := "192.168.1.1"
-
-	t.Run("Pod exists", func(t *testing.T) {
-		// Create a fake clientset
-		clientset := fake.NewSimpleClientset(&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      podName,
-				Namespace: namespace,
-			},
-			Status: corev1.PodStatus{
-				PodIP: podIP,
-			},
-		})
-
-		// Create a context
-		ctx := context.Background()
-
-		// Call the function
-		ip, err := getPodIP(ctx, clientset, namespace, podName)
-		if err != nil {
-			t.Errorf("getPodIP() returned an error: %v", err)
-		}
-		if ip != podIP {
-			t.Errorf("getPodIP() returned IP %s; want %s", ip, podIP)
-		}
-	})
-
-	t.Run("Pod does not exist", func(t *testing.T) {
-		// Create a fake clientset with no pods
-		clientset := fake.NewSimpleClientset()
-
-		// Create a context
-		ctx := context.Background()
-
-		// Call the function
-		ip, err := getPodIP(ctx, clientset, namespace, podName)
-		if err == nil {
-			t.Errorf("getPodIP() did not return an error for non-existent pod")
-		}
-		if ip != "" {
-			t.Errorf("getPodIP() returned IP %s; want empty string", ip)
-		}
-	})
-
-	t.Run("API error", func(t *testing.T) {
-		// Create a fake clientset that will return an error
-		clientset := fake.NewSimpleClientset()
-		clientset.PrependReactor("get", "pods", func(_ k8stesting.Action) (handled bool, ret runtime.Object, err error) {
-			return true, nil, fmt.Errorf("API error")
-		})
-
-		// Create a context
-		ctx := context.Background()
-
-		// Call the function
-		ip, err := getPodIP(ctx, clientset, namespace, podName)
-		if err == nil {
-			t.Errorf("getPodIP() did not return an error for API error")
-		}
-		if ip != "" {
-			t.Errorf("getPodIP() returned IP %s; want empty string", ip)
-		}
-	})
-}
-
-func TestContains(t *testing.T) {
+func TestContainsAccessMode(t *testing.T) {
 	modes := []corev1.PersistentVolumeAccessMode{
 		corev1.ReadWriteOnce,
 		corev1.ReadWriteMany,
 	}
-	if !slices.Contains(modes, corev1.ReadWriteOnce) {
+	if !containsAccessMode(modes, corev1.ReadWriteOnce) {
 		t.Error("Expected mode to be found")
 	}
-	if slices.Contains(modes, corev1.ReadOnlyMany) {
+	if containsAccessMode(modes, corev1.ReadOnlyMany) {
 		t.Error("Did not expect mode to be found")
 	}
 }
 
 func TestGeneratePodNameAndPort(t *testing.T) {
-	name1, port1 := generatePodNameAndPort("standalone")
-	name2, port2 := generatePodNameAndPort("standalone")
+	name1, port1 := generatePodNameAndPort()
+	name2, port2 := generatePodNameAndPort()
 	if name1 == name2 {
 		t.Error("Expected different pod names")
 	}
@@ -153,12 +72,21 @@ func TestGeneratePodNameAndPort(t *testing.T) {
 	}
 }
 
+func TestGeneratePodNameAndPort_Format(t *testing.T) {
+	name, port := generatePodNameAndPort()
+	if len(name) < len("volume-exposer-") {
+		t.Errorf("Expected pod name to start with 'volume-exposer-', got '%s'", name)
+	}
+	if port < 1024 || port > 65535 {
+		t.Errorf("Expected port in valid range (1024-65535), got %d", port)
+	}
+}
+
 func TestCreatePodSpec(t *testing.T) {
-	podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", false, "whatever", "secret", "300m")
+	podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", false, "whatever", "secret", "300m")
 	if podSpec.Name != "test-pod" {
 		t.Errorf("Expected pod name 'test-pod', got '%s'", podSpec.Name)
 	}
-	// Additional checks for volumes, containers, etc.
 }
 
 func TestGetPVCVolumeName(t *testing.T) {
@@ -354,31 +282,9 @@ func TestGetSecurityContext(t *testing.T) {
 	})
 }
 
-func TestGeneratePodNameAndPort_Roles(t *testing.T) {
-	t.Run("Proxy role", func(t *testing.T) {
-		name, port := generatePodNameAndPort("proxy")
-		if len(name) < len("volume-exposer-proxy-") {
-			t.Errorf("Expected proxy pod name to start with 'volume-exposer-proxy-', got '%s'", name)
-		}
-		if port < 1024 || port > 65535 {
-			t.Errorf("Expected port in valid range (1024-65535), got %d", port)
-		}
-	})
-
-	t.Run("Standalone role", func(t *testing.T) {
-		name, port := generatePodNameAndPort("standalone")
-		if len(name) < len("volume-exposer-") {
-			t.Errorf("Expected standalone pod name to start with 'volume-exposer-', got '%s'", name)
-		}
-		if port < 1024 || port > 65535 {
-			t.Errorf("Expected port in valid range (1024-65535), got %d", port)
-		}
-	})
-}
-
 func TestCreatePodSpec_Comprehensive(t *testing.T) {
 	t.Run("With image secret", func(t *testing.T) {
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", false, "", "my-secret", "")
+		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", false, "", "my-secret", "")
 		if len(podSpec.Spec.ImagePullSecrets) == 0 {
 			t.Error("Expected image pull secrets to be set")
 		}
@@ -387,21 +293,15 @@ func TestCreatePodSpec_Comprehensive(t *testing.T) {
 		}
 	})
 
-	t.Run("Proxy role with original pod name", func(t *testing.T) {
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "proxy", 6666, "original-pod", false, "", "", "")
-		if podSpec.Name != "test-pod" {
-			t.Errorf("Expected pod name 'test-pod', got '%s'", podSpec.Name)
-		}
-		if len(podSpec.Spec.Volumes) != 0 {
-			t.Error("Expected no volumes for proxy role")
-		}
-		if podSpec.Labels["originalPodName"] != "original-pod" {
-			t.Errorf("Expected originalPodName label 'original-pod', got '%s'", podSpec.Labels["originalPodName"])
+	t.Run("All pods attach PVC", func(t *testing.T) {
+		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", false, "", "", "")
+		if len(podSpec.Spec.Volumes) != 1 {
+			t.Errorf("Expected 1 volume, got %d", len(podSpec.Spec.Volumes))
 		}
 	})
 
 	t.Run("Root mode", func(t *testing.T) {
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", true, "", "", "")
+		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", true, "", "", "")
 		if *podSpec.Spec.SecurityContext.RunAsNonRoot != false {
 			t.Error("Expected RunAsNonRoot to be false in root mode")
 		}
@@ -415,7 +315,7 @@ func TestCreatePodSpec_Comprehensive(t *testing.T) {
 
 	t.Run("Custom image", func(t *testing.T) {
 		customImage := "myregistry/custom-image:v1.0"
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", false, customImage, "", "")
+		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", false, customImage, "", "")
 		if podSpec.Spec.Containers[0].Image != customImage {
 			t.Errorf("Expected custom image '%s', got '%s'", customImage, podSpec.Spec.Containers[0].Image)
 		}
@@ -423,28 +323,28 @@ func TestCreatePodSpec_Comprehensive(t *testing.T) {
 
 	t.Run("CPU limit", func(t *testing.T) {
 		cpuLimit := "500m"
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", false, "", "", cpuLimit)
+		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", false, "", "", cpuLimit)
 		if podSpec.Spec.Containers[0].Resources.Limits.Cpu().String() != cpuLimit {
 			t.Errorf("Expected CPU limit '%s', got '%s'", cpuLimit, podSpec.Spec.Containers[0].Resources.Limits.Cpu().String())
 		}
 	})
 
-	t.Run("Default non-root image", func(t *testing.T) {
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", false, "", "", "")
+	t.Run("Default image", func(t *testing.T) {
+		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", false, "", "", "")
 		if podSpec.Spec.Containers[0].Image != Image {
 			t.Errorf("Expected default image '%s', got '%s'", Image, podSpec.Spec.Containers[0].Image)
 		}
 	})
 
-	t.Run("Default privileged image", func(t *testing.T) {
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 22, "", true, "", "", "")
-		if podSpec.Spec.Containers[0].Image != PrivilegedImage {
-			t.Errorf("Expected privileged image '%s', got '%s'", PrivilegedImage, podSpec.Spec.Containers[0].Image)
+	t.Run("Same image for root mode", func(t *testing.T) {
+		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", true, "", "", "")
+		if podSpec.Spec.Containers[0].Image != Image {
+			t.Errorf("Expected same image '%s' for root mode, got '%s'", Image, podSpec.Spec.Containers[0].Image)
 		}
 	})
 
 	t.Run("Environment variables", func(t *testing.T) {
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "testPublicKey", "standalone", 2137, "", false, "", "", "")
+		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "testPublicKey", false, "", "", "")
 		envMap := make(map[string]string)
 		for _, env := range podSpec.Spec.Containers[0].Env {
 			envMap[env.Name] = env.Value
@@ -452,58 +352,15 @@ func TestCreatePodSpec_Comprehensive(t *testing.T) {
 		if envMap["SSH_PUBLIC_KEY"] != "testPublicKey" {
 			t.Errorf("Expected SSH_PUBLIC_KEY='testPublicKey', got '%s'", envMap["SSH_PUBLIC_KEY"])
 		}
-		if envMap["SSH_PORT"] != "2137" {
-			t.Errorf("Expected SSH_PORT='2137', got '%s'", envMap["SSH_PORT"])
-		}
 		if envMap["NEEDS_ROOT"] != "false" {
 			t.Errorf("Expected NEEDS_ROOT='false', got '%s'", envMap["NEEDS_ROOT"])
-		}
-		if envMap["ROLE"] != "standalone" {
-			t.Errorf("Expected ROLE='standalone', got '%s'", envMap["ROLE"])
-		}
-	})
-
-	t.Run("Without ROLE env var for non-standard role", func(t *testing.T) {
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "testPublicKey", "custom", 2137, "", false, "", "", "")
-		hasRole := false
-		for _, env := range podSpec.Spec.Containers[0].Env {
-			if env.Name == "ROLE" {
-				hasRole = true
-			}
-		}
-		if hasRole {
-			t.Error("Expected no ROLE env var for non-standard role")
-		}
-	})
-
-	t.Run("Invalid SSH port (negative)", func(t *testing.T) {
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", -1, "", false, "", "", "")
-		// Should default to DefaultSSHPort (2137)
-		envMap := make(map[string]string)
-		for _, env := range podSpec.Spec.Containers[0].Env {
-			envMap[env.Name] = env.Value
-		}
-		if envMap["SSH_PORT"] != "2137" {
-			t.Errorf("Expected SSH_PORT='2137' for negative port, got '%s'", envMap["SSH_PORT"])
-		}
-	})
-
-	t.Run("Invalid SSH port (too large)", func(t *testing.T) {
-		podSpec := createPodSpec("test-pod", 12345, "test-pvc", "publicKey", "standalone", 70000, "", false, "", "", "")
-		// Should default to DefaultSSHPort (2137)
-		envMap := make(map[string]string)
-		for _, env := range podSpec.Spec.Containers[0].Env {
-			envMap[env.Name] = env.Value
-		}
-		if envMap["SSH_PORT"] != "2137" {
-			t.Errorf("Expected SSH_PORT='2137' for port > 65535, got '%s'", envMap["SSH_PORT"])
 		}
 	})
 }
 
 func TestBuildContainer(t *testing.T) {
 	t.Run("Standard container", func(t *testing.T) {
-		container := buildContainer("publicKey123", "standalone", 22, false, "", "")
+		container := buildContainer("publicKey123", false, "", "")
 		if container.Name != "volume-exposer" {
 			t.Errorf("Expected container name 'volume-exposer', got '%s'", container.Name)
 		}
@@ -513,22 +370,20 @@ func TestBuildContainer(t *testing.T) {
 		if container.ImagePullPolicy != corev1.PullAlways {
 			t.Error("Expected ImagePullPolicy to be PullAlways")
 		}
-		if len(container.Ports) != 1 || container.Ports[0].ContainerPort != 22 {
-			t.Error("Expected container port 22")
+		if len(container.Ports) != 1 || container.Ports[0].ContainerPort != int32(DefaultSSHPort) {
+			t.Errorf("Expected container port %d", DefaultSSHPort)
 		}
 	})
 
 	t.Run("Container with custom image and CPU limit", func(t *testing.T) {
-		container := buildContainer("publicKey", "proxy", 2222, true, "custom-image:latest", "1000m")
+		container := buildContainer("publicKey", true, "custom-image:latest", "1000m")
 		if container.Image != "custom-image:latest" {
 			t.Errorf("Expected custom image, got '%s'", container.Image)
 		}
-		// CPU limits are normalized by Kubernetes, so "1000m" becomes "1"
 		cpuLimit := container.Resources.Limits.Cpu()
 		if cpuLimit.IsZero() {
 			t.Error("Expected CPU limit to be set")
 		}
-		// Verify the limit is approximately 1 CPU (1000m = 1)
 		if cpuLimit.Value() != 1 && cpuLimit.MilliValue() != 1000 {
 			t.Errorf("Expected CPU limit to be 1 CPU or 1000m, got value=%d, millivalue=%d", cpuLimit.Value(), cpuLimit.MilliValue())
 		}
@@ -536,8 +391,8 @@ func TestBuildContainer(t *testing.T) {
 }
 
 func TestBuildEnvVars(t *testing.T) {
-	t.Run("Standalone role with env vars", func(t *testing.T) {
-		envVars := buildEnvVars("testKey", "standalone", 2222, false)
+	t.Run("Standard env vars", func(t *testing.T) {
+		envVars := buildEnvVars("testKey", false)
 		envMap := make(map[string]string)
 		for _, env := range envVars {
 			envMap[env.Name] = env.Value
@@ -545,19 +400,13 @@ func TestBuildEnvVars(t *testing.T) {
 		if envMap["SSH_PUBLIC_KEY"] != "testKey" {
 			t.Errorf("Expected SSH_PUBLIC_KEY='testKey', got '%s'", envMap["SSH_PUBLIC_KEY"])
 		}
-		if envMap["SSH_PORT"] != "2222" {
-			t.Errorf("Expected SSH_PORT='2222', got '%s'", envMap["SSH_PORT"])
-		}
 		if envMap["NEEDS_ROOT"] != "false" {
 			t.Errorf("Expected NEEDS_ROOT='false', got '%s'", envMap["NEEDS_ROOT"])
 		}
-		if envMap["ROLE"] != "standalone" {
-			t.Errorf("Expected ROLE='standalone', got '%s'", envMap["ROLE"])
-		}
 	})
 
-	t.Run("Proxy role with env vars", func(t *testing.T) {
-		envVars := buildEnvVars("proxyKey", "proxy", 3333, true)
+	t.Run("Root env vars", func(t *testing.T) {
+		envVars := buildEnvVars("rootKey", true)
 		envMap := make(map[string]string)
 		for _, env := range envVars {
 			envMap[env.Name] = env.Value
@@ -565,51 +414,44 @@ func TestBuildEnvVars(t *testing.T) {
 		if envMap["NEEDS_ROOT"] != "true" {
 			t.Errorf("Expected NEEDS_ROOT='true', got '%s'", envMap["NEEDS_ROOT"])
 		}
-		if envMap["ROLE"] != "proxy" {
-			t.Errorf("Expected ROLE='proxy', got '%s'", envMap["ROLE"])
-		}
 	})
 
-	t.Run("Custom role without ROLE env var", func(t *testing.T) {
-		envVars := buildEnvVars("customKey", "custom", 22, false)
-		hasRole := false
+	t.Run("No ROLE env var", func(t *testing.T) {
+		envVars := buildEnvVars("key", false)
 		for _, env := range envVars {
 			if env.Name == "ROLE" {
-				hasRole = true
+				t.Error("Expected no ROLE env var")
 			}
-		}
-		if hasRole {
-			t.Error("Expected no ROLE env var for custom role")
 		}
 	})
 }
 
 func TestSelectImage(t *testing.T) {
 	t.Run("Custom image provided", func(t *testing.T) {
-		img := selectImage("my-custom-image:v1", false)
+		img := selectImage("my-custom-image:v1")
 		if img != "my-custom-image:v1" {
 			t.Errorf("Expected 'my-custom-image:v1', got '%s'", img)
 		}
 	})
 
 	t.Run("Custom image overrides needsRoot", func(t *testing.T) {
-		img := selectImage("my-custom-image:v1", true)
+		img := selectImage("my-custom-image:v1")
 		if img != "my-custom-image:v1" {
 			t.Errorf("Expected 'my-custom-image:v1', got '%s'", img)
 		}
 	})
 
 	t.Run("Default image when needsRoot is false", func(t *testing.T) {
-		img := selectImage("", false)
+		img := selectImage("")
 		if img != Image {
 			t.Errorf("Expected '%s', got '%s'", Image, img)
 		}
 	})
 
-	t.Run("Privileged image when needsRoot is true", func(t *testing.T) {
-		img := selectImage("", true)
-		if img != PrivilegedImage {
-			t.Errorf("Expected '%s', got '%s'", PrivilegedImage, img)
+	t.Run("Same image when needsRoot is true", func(t *testing.T) {
+		img := selectImage("")
+		if img != Image {
+			t.Errorf("Expected '%s', got '%s'", Image, img)
 		}
 	})
 }
@@ -640,8 +482,8 @@ func TestBuildResourceRequirements(t *testing.T) {
 }
 
 func TestBuildPodLabels(t *testing.T) {
-	t.Run("Labels without original pod name", func(t *testing.T) {
-		labels := buildPodLabels("my-pvc", 12345, "")
+	t.Run("Labels for pod", func(t *testing.T) {
+		labels := buildPodLabels("my-pvc", 12345)
 		if labels["app"] != "volume-exposer" {
 			t.Errorf("Expected app label 'volume-exposer', got '%s'", labels["app"])
 		}
@@ -650,16 +492,6 @@ func TestBuildPodLabels(t *testing.T) {
 		}
 		if labels["portNumber"] != "12345" {
 			t.Errorf("Expected portNumber label '12345', got '%s'", labels["portNumber"])
-		}
-		if _, hasOriginalPodName := labels["originalPodName"]; hasOriginalPodName {
-			t.Error("Expected no originalPodName label")
-		}
-	})
-
-	t.Run("Labels with original pod name", func(t *testing.T) {
-		labels := buildPodLabels("my-pvc", 54321, "original-pod")
-		if labels["originalPodName"] != "original-pod" {
-			t.Errorf("Expected originalPodName label 'original-pod', got '%s'", labels["originalPodName"])
 		}
 	})
 }
@@ -755,12 +587,10 @@ func TestCreateTempSSHKeyFile(t *testing.T) {
 		}
 		defer cleanup()
 
-		// Verify file exists
 		if _, err := os.Stat(keyFilePath); os.IsNotExist(err) {
 			t.Error("Expected temp key file to exist")
 		}
 
-		// Verify file permissions
 		info, err := os.Stat(keyFilePath)
 		if err != nil {
 			t.Fatalf("Failed to stat key file: %v", err)
@@ -769,7 +599,6 @@ func TestCreateTempSSHKeyFile(t *testing.T) {
 			t.Errorf("Expected file permissions 0600, got %o", info.Mode().Perm())
 		}
 
-		// Verify file contents
 		content, err := os.ReadFile(keyFilePath)
 		if err != nil {
 			t.Fatalf("Failed to read key file: %v", err)
@@ -788,7 +617,6 @@ func TestCreateTempSSHKeyFile(t *testing.T) {
 
 		cleanup()
 
-		// Verify file is removed
 		if _, err := os.Stat(keyFilePath); !os.IsNotExist(err) {
 			t.Error("Expected temp key file to be removed after cleanup")
 		}
@@ -816,7 +644,6 @@ func TestBuildSSHFSCommand(t *testing.T) {
 		ctx := context.Background()
 		cmd := buildSSHFSCommand(ctx, "/tmp/keyfile", "testuser", "/mnt/pvc", 12345)
 
-		// Check that the command contains "sshfs" in the path
 		if cmd.Path == "" || len(cmd.Path) < 5 {
 			t.Errorf("Expected command path to contain 'sshfs', got '%s'", cmd.Path)
 		}
@@ -873,12 +700,10 @@ func TestRegisterAndUnregisterTempKeyFile(t *testing.T) {
 
 func TestCleanupTempKeyFiles(t *testing.T) {
 	t.Run("Cleanup all registered temp key files", func(t *testing.T) {
-		// Clear the map first to isolate this test
 		tempKeyFilesMu.Lock()
 		tempKeyFiles = make(map[string]struct{})
 		tempKeyFilesMu.Unlock()
 
-		// Create temp files
 		tmpFile1, err := os.CreateTemp("", "test_key_1_*.pem")
 		if err != nil {
 			t.Fatalf("Failed to create temp file: %v", err)
@@ -893,11 +718,9 @@ func TestCleanupTempKeyFiles(t *testing.T) {
 		path2 := tmpFile2.Name()
 		_ = tmpFile2.Close()
 
-		// Register files
 		registerTempKeyFile(path1)
 		registerTempKeyFile(path2)
 
-		// Verify files exist
 		if _, err := os.Stat(path1); os.IsNotExist(err) {
 			t.Error("Expected first temp file to exist")
 		}
@@ -905,19 +728,14 @@ func TestCleanupTempKeyFiles(t *testing.T) {
 			t.Error("Expected second temp file to exist")
 		}
 
-		// Cleanup
 		cleanupTempKeyFiles()
 
-		// Verify files are removed
 		if _, err := os.Stat(path1); !os.IsNotExist(err) {
 			t.Error("Expected first temp file to be removed")
 		}
 		if _, err := os.Stat(path2); !os.IsNotExist(err) {
 			t.Error("Expected second temp file to be removed")
 		}
-
-		// Note: cleanupTempKeyFiles removes files but doesn't clear the map
-		// This is by design - the map tracks which files need cleanup
 	})
 }
 
@@ -926,9 +744,7 @@ func TestBuildEphemeralContainerSpec(t *testing.T) {
 		spec := buildEphemeralContainerSpec(
 			"test-ephemeral",
 			"volume-name",
-			"privateKey123",
 			"publicKey456",
-			"10.0.0.1",
 			false,
 			"",
 		)
@@ -943,19 +759,9 @@ func TestBuildEphemeralContainerSpec(t *testing.T) {
 			t.Error("Expected ImagePullPolicy to be PullAlways")
 		}
 
-		// Check environment variables
 		envMap := make(map[string]string)
 		for _, env := range spec.Env {
 			envMap[env.Name] = env.Value
-		}
-		if envMap["ROLE"] != "ephemeral" {
-			t.Errorf("Expected ROLE='ephemeral', got '%s'", envMap["ROLE"])
-		}
-		if envMap["SSH_PRIVATE_KEY"] != "privateKey123" {
-			t.Errorf("Expected SSH_PRIVATE_KEY='privateKey123', got '%s'", envMap["SSH_PRIVATE_KEY"])
-		}
-		if envMap["PROXY_POD_IP"] != "10.0.0.1" {
-			t.Errorf("Expected PROXY_POD_IP='10.0.0.1', got '%s'", envMap["PROXY_POD_IP"])
 		}
 		if envMap["SSH_PUBLIC_KEY"] != "publicKey456" {
 			t.Errorf("Expected SSH_PUBLIC_KEY='publicKey456', got '%s'", envMap["SSH_PUBLIC_KEY"])
@@ -963,8 +769,17 @@ func TestBuildEphemeralContainerSpec(t *testing.T) {
 		if envMap["NEEDS_ROOT"] != "false" {
 			t.Errorf("Expected NEEDS_ROOT='false', got '%s'", envMap["NEEDS_ROOT"])
 		}
+		// Verify removed env vars are not present
+		if _, ok := envMap["ROLE"]; ok {
+			t.Error("Expected no ROLE env var")
+		}
+		if _, ok := envMap["SSH_PRIVATE_KEY"]; ok {
+			t.Error("Expected no SSH_PRIVATE_KEY env var")
+		}
+		if _, ok := envMap["PROXY_POD_IP"]; ok {
+			t.Error("Expected no PROXY_POD_IP env var")
+		}
 
-		// Check volume mounts
 		if len(spec.VolumeMounts) != 1 {
 			t.Fatalf("Expected 1 volume mount, got %d", len(spec.VolumeMounts))
 		}
@@ -980,15 +795,13 @@ func TestBuildEphemeralContainerSpec(t *testing.T) {
 		spec := buildEphemeralContainerSpec(
 			"test-ephemeral-root",
 			"volume-name",
-			"privateKey",
 			"publicKey",
-			"10.0.0.2",
 			true,
 			"",
 		)
 
-		if spec.Image != PrivilegedImage {
-			t.Errorf("Expected privileged image '%s', got '%s'", PrivilegedImage, spec.Image)
+		if spec.Image != Image {
+			t.Errorf("Expected image '%s', got '%s'", Image, spec.Image)
 		}
 
 		envMap := make(map[string]string)
@@ -1005,9 +818,7 @@ func TestBuildEphemeralContainerSpec(t *testing.T) {
 		spec := buildEphemeralContainerSpec(
 			"test-ephemeral-custom",
 			"volume-name",
-			"privateKey",
 			"publicKey",
-			"10.0.0.3",
 			false,
 			customImage,
 		)
@@ -1109,7 +920,6 @@ func TestCheckEphemeralContainerStatus(t *testing.T) {
 	})
 
 	t.Run("No ephemeral container statuses with debug near deadline", func(t *testing.T) {
-		// Set deadline to be very close (less than 5 seconds away) to trigger debug output
 		nearDeadline := time.Now().Add(3 * time.Second)
 		pod := &corev1.Pod{
 			Status: corev1.PodStatus{

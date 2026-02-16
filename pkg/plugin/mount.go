@@ -19,7 +19,7 @@ import (
 
 const (
 	// ImageVersion specifies the container image version for volume-exposer
-	ImageVersion = "def4bdfaf8"
+	ImageVersion = "93544561e8"
 
 	// Image is the default container image
 	Image = "bfenski/volume-exposer:" + ImageVersion

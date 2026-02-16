@@ -53,4 +53,4 @@ else
     echo "Detected local/block-backed volume (fstype=$FS_TYPE), using VFS FSAL" >&2
 fi
 
-exec /usr/bin/ganesha.nfsd -F -L /dev/stderr -f "$CONF"
+exec /usr/bin/ganesha.nfsd -F -L /proc/self/fd/2 -f "$CONF"

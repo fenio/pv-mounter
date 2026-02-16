@@ -838,7 +838,7 @@ func TestCheckEphemeralContainerStatus(t *testing.T) {
 				EphemeralContainerStatuses: []corev1.ContainerStatus{},
 			},
 		}
-		ready, err := checkEphemeralContainerStatus(pod, deadline, false)
+		ready, err := checkEphemeralContainerStatus(pod, "ephemeral-test", deadline, false)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -862,7 +862,7 @@ func TestCheckEphemeralContainerStatus(t *testing.T) {
 				},
 			},
 		}
-		ready, err := checkEphemeralContainerStatus(pod, deadline, false)
+		ready, err := checkEphemeralContainerStatus(pod, "ephemeral-test", deadline, false)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -886,7 +886,7 @@ func TestCheckEphemeralContainerStatus(t *testing.T) {
 				},
 			},
 		}
-		ready, err := checkEphemeralContainerStatus(pod, deadline, false)
+		ready, err := checkEphemeralContainerStatus(pod, "ephemeral-test", deadline, false)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -910,7 +910,7 @@ func TestCheckEphemeralContainerStatus(t *testing.T) {
 				},
 			},
 		}
-		ready, err := checkEphemeralContainerStatus(pod, deadline, false)
+		ready, err := checkEphemeralContainerStatus(pod, "ephemeral-test", deadline, false)
 		if err == nil {
 			t.Error("Expected error when ephemeral container is terminated")
 		}
@@ -926,7 +926,7 @@ func TestCheckEphemeralContainerStatus(t *testing.T) {
 				EphemeralContainerStatuses: []corev1.ContainerStatus{},
 			},
 		}
-		ready, err := checkEphemeralContainerStatus(pod, nearDeadline, true)
+		ready, err := checkEphemeralContainerStatus(pod, "ephemeral-test", nearDeadline, true)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -950,7 +950,7 @@ func TestCheckEphemeralContainerStatus(t *testing.T) {
 				},
 			},
 		}
-		ready, err := checkEphemeralContainerStatus(pod, deadline, true)
+		ready, err := checkEphemeralContainerStatus(pod, "ephemeral-test", deadline, true)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -974,7 +974,7 @@ func TestCheckEphemeralContainerStatus(t *testing.T) {
 				},
 			},
 		}
-		ready, err := checkEphemeralContainerStatus(pod, deadline, true)
+		ready, err := checkEphemeralContainerStatus(pod, "ephemeral-test", deadline, true)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}

@@ -12,10 +12,11 @@ func handleRWONFS(ctx context.Context, clientset *kubernetes.Clientset, namespac
 	_, localPort := generatePodNameAndPort()
 
 	// Inject NFS ephemeral container
-	if err := createNFSEphemeralContainer(ctx, clientset, namespace, podUsingPVC, image); err != nil {
+	containerName, err := createNFSEphemeralContainer(ctx, clientset, namespace, podUsingPVC, image)
+	if err != nil {
 		return err
 	}
-	if err := waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, debug); err != nil {
+	if err := waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, containerName, debug); err != nil {
 		return err
 	}
 

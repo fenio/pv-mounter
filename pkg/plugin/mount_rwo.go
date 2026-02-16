@@ -17,10 +17,11 @@ func handleRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace, 
 	_, localPort := generatePodNameAndPort()
 
 	// Inject ephemeral container with sshd (uses DefaultSSHPort 2137)
-	if err := createEphemeralContainer(ctx, clientset, namespace, podUsingPVC, publicKey, needsRoot, image); err != nil {
+	containerName, err := createEphemeralContainer(ctx, clientset, namespace, podUsingPVC, publicKey, needsRoot, image)
+	if err != nil {
 		return err
 	}
-	if err := waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, debug); err != nil {
+	if err := waitForEphemeralContainerReady(ctx, clientset, namespace, podUsingPVC, containerName, debug); err != nil {
 		return err
 	}
 

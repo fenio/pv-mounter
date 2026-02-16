@@ -109,14 +109,14 @@ func buildNFSPodLabels(pvcName string, port int) map[string]string {
 }
 
 // createNFSEphemeralContainer creates an NFS ephemeral container in an existing pod.
-func createNFSEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string, image string) error {
+func createNFSEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string, image string) (string, error) {
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get existing pod: %w", err)
+		return "", fmt.Errorf("failed to get existing pod: %w", err)
 	}
 	volumeName, err := getPVCVolumeName(existingPod)
 	if err != nil {
-		return err
+		return "", err
 	}
 	ephemeralContainerName := fmt.Sprintf("nfs-ganesha-ephemeral-%s", randSeq(5))
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
@@ -124,11 +124,11 @@ func createNFSEphemeralContainer(ctx context.Context, clientset *kubernetes.Clie
 	ephemeralContainer := buildNFSEphemeralContainerSpec(ephemeralContainerName, volumeName, image)
 
 	if err := patchPodWithEphemeralContainer(ctx, clientset, namespace, podName, ephemeralContainer); err != nil {
-		return err
+		return "", err
 	}
 
 	fmt.Printf("Successfully added ephemeral container %s to pod %s\n", ephemeralContainerName, podName)
-	return nil
+	return ephemeralContainerName, nil
 }
 
 // buildNFSEphemeralContainerSpec creates the specification for an NFS ephemeral container.

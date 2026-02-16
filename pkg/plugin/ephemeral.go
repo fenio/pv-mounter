@@ -15,14 +15,14 @@ import (
 )
 
 // createEphemeralContainer creates an ephemeral container in an existing pod.
-func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, publicKey string, needsRoot bool, image string) error {
+func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, publicKey string, needsRoot bool, image string) (string, error) {
 	existingPod, err := clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get existing pod: %w", err)
+		return "", fmt.Errorf("failed to get existing pod: %w", err)
 	}
 	volumeName, err := getPVCVolumeName(existingPod)
 	if err != nil {
-		return err
+		return "", err
 	}
 	ephemeralContainerName := fmt.Sprintf("volume-exposer-ephemeral-%s", randSeq(5))
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
@@ -30,11 +30,11 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 	ephemeralContainer := buildEphemeralContainerSpec(ephemeralContainerName, volumeName, publicKey, needsRoot, image)
 
 	if err := patchPodWithEphemeralContainer(ctx, clientset, namespace, podName, ephemeralContainer); err != nil {
-		return err
+		return "", err
 	}
 
 	fmt.Printf("Successfully added ephemeral container %s to pod %s\n", ephemeralContainerName, podName)
-	return nil
+	return ephemeralContainerName, nil
 }
 
 // buildEphemeralContainerSpec creates the specification for an ephemeral container.
@@ -80,12 +80,12 @@ func patchPodWithEphemeralContainer(ctx context.Context, clientset *kubernetes.C
 }
 
 // waitForEphemeralContainerReady waits for an ephemeral container to be ready.
-func waitForEphemeralContainerReady(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName string, debug bool) error {
+func waitForEphemeralContainerReady(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, containerName string, debug bool) error {
 	timeout := 60 * time.Second
 	deadline := time.Now().Add(timeout)
 
 	if debug {
-		fmt.Printf("Waiting for ephemeral container to be ready in pod %s...\n", podName)
+		fmt.Printf("Waiting for ephemeral container %s to be ready in pod %s...\n", containerName, podName)
 	}
 
 	return wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (bool, error) {
@@ -94,20 +94,27 @@ func waitForEphemeralContainerReady(ctx context.Context, clientset *kubernetes.C
 			return false, err
 		}
 
-		return checkEphemeralContainerStatus(pod, deadline, debug)
+		return checkEphemeralContainerStatus(pod, containerName, deadline, debug)
 	})
 }
 
 // checkEphemeralContainerStatus checks the status of an ephemeral container.
-func checkEphemeralContainerStatus(pod *corev1.Pod, deadline time.Time, debug bool) (bool, error) {
-	if len(pod.Status.EphemeralContainerStatuses) == 0 {
+func checkEphemeralContainerStatus(pod *corev1.Pod, containerName string, deadline time.Time, debug bool) (bool, error) {
+	// Find the specific ephemeral container by name
+	var ephemeralStatus *corev1.ContainerStatus
+	for i := range pod.Status.EphemeralContainerStatuses {
+		if pod.Status.EphemeralContainerStatuses[i].Name == containerName {
+			ephemeralStatus = &pod.Status.EphemeralContainerStatuses[i]
+			break
+		}
+	}
+
+	if ephemeralStatus == nil {
 		if debug && time.Now().Add(5*time.Second).After(deadline) {
-			fmt.Printf("Still waiting for ephemeral container status to appear...\n")
+			fmt.Printf("Still waiting for ephemeral container %s status to appear...\n", containerName)
 		}
 		return false, nil
 	}
-
-	ephemeralStatus := pod.Status.EphemeralContainerStatuses[len(pod.Status.EphemeralContainerStatuses)-1]
 
 	if ephemeralStatus.State.Running != nil {
 		if debug {

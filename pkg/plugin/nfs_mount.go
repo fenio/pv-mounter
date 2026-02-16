@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -86,7 +87,8 @@ func isNFSReady(ctx context.Context, port int) bool {
 	buf := make([]byte, 1)
 	_, err = conn.Read(buf)
 	if err != nil {
-		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
 			return true // read timed out = connection alive, Ganesha is waiting
 		}
 		return false // connection closed = forward failed

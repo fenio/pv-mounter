@@ -46,7 +46,7 @@ func TestBuildNFSMountCommand(t *testing.T) {
 		} else {
 			expectedArgs := []string{
 				"mount", "-t", "nfs4",
-				"-o", "port=12345,vers=4.2",
+				"-o", "port=12345,vers=4.2,soft,timeo=50,retrans=2,retry=0",
 				"127.0.0.1:/volume",
 				"/mnt/pvc",
 			}

@@ -9,11 +9,12 @@
 [![GitHub issues](https://img.shields.io/github/issues/fenio/pv-mounter)](https://github.com/fenio/pv-mounter/issues)
 ![GitHub all releases](https://img.shields.io/github/downloads/fenio/pv-mounter/total)
 ![Docker Pulls](https://img.shields.io/docker/pulls/bfenski/volume-exposer?label=volume-exposer%20-%20docker%20pulls)
+![Docker Pulls](https://img.shields.io/docker/pulls/bfenski/nfs-ganesha?label=nfs-ganesha%20-%20docker%20pulls)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/fenio/pv-mounter/badge)](https://scorecard.dev/viewer/?uri=github.com/fenio/pv-mounter)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/9551/badge)](https://www.bestpractices.dev/projects/9551)
 [![codecov](https://codecov.io/gh/fenio/pv-mounter/graph/badge.svg?token=DHYZ71SVDV)](https://codecov.io/gh/fenio/pv-mounter)
 
-A tool to locally mount Kubernetes Persistent Volumes (PVs) using SSHFS.
+A tool to locally mount Kubernetes Persistent Volumes (PVs) using SSHFS or NFS.
 
 This tool can also be used as a kubectl plugin.
 
@@ -60,24 +61,40 @@ For already mounted RWO volumes, it's a bit more complex:
 
 ![RWO](rwo.png)
 
+### NFS backend
+
+As an alternative to SSHFS, pv-mounter supports an NFS backend using [NFS-Ganesha](https://github.com/nfs-ganesha/nfs-ganesha). This can offer better performance and doesn't require SSHFS on the client. Use the `--backend nfs` flag to enable it.
+
+The NFS backend works the same way as SSH for both RWX and RWO volumes — it creates a standalone pod or ephemeral container running NFS-Ganesha, sets up port-forwarding, and mounts the volume locally via NFSv4.
+
+**Requirements:**
+* macOS: NFS client is built-in, no extra software needed.
+* Linux: Install `nfs-common` (Debian/Ubuntu) or `nfs-utils` (RHEL/Fedora).
+
+**Usage:**
+```
+kubectl pv-mounter mount --backend nfs <namespace> <pvc-name> <local-mount-point>
+kubectl pv-mounter clean --backend nfs <namespace> <pvc-name> <local-mount-point>
+```
 
 See the demo below for more details.
 
-## Prerequisities
+## Prerequisites
 
-* You need a working SSHFS setup.
-
-Instructions for [macOS](https://osxfuse.github.io/).
-
-Instructions for [Linux](https://github.com/libfuse/sshfs).
+* **SSH backend (default):** You need a working SSHFS setup.
+  * Instructions for [macOS](https://osxfuse.github.io/).
+  * Instructions for [Linux](https://github.com/libfuse/sshfs).
+* **NFS backend (`--backend nfs`):** You need an NFS client.
+  * macOS: Built-in, no installation needed.
+  * Linux: `sudo apt install nfs-common` (Debian/Ubuntu) or `sudo dnf install nfs-utils` (RHEL/Fedora).
 
 ## Quick Start / Usage
 
 ```
 kubectl krew install pv-mounter
 
-kubectl pv-mounter mount [--needs-root] [--debug] [--image] [--image-secret] <namespace> <pvc-name> <local-mount-point> [flags]
-kubectl pv-mounter clean <namespace> <pvc-name> <local-mount-point> [flags]
+kubectl pv-mounter mount [--backend ssh|nfs] [--needs-root] [--debug] [--image] [--image-secret] <namespace> <pvc-name> <local-mount-point>
+kubectl pv-mounter clean [--backend ssh|nfs] <namespace> <pvc-name> <local-mount-point>
 
 ```
 
@@ -88,6 +105,8 @@ Or you can simply grab binaries from [releases](https://github.com/fenio/pv-moun
 ## Security
 
 I spent quite some time to make the solution as secure as possible.
+
+### SSH backend
 
 * SSH keys used for connections between various components are generated every time from scratch and once you wipe the environment clean, you won't be able to connect back into it using the same credentials.
 * Containers / PODs are using minimal possible privileges:
@@ -108,6 +127,12 @@ PasswordAuthentication no
 ```
 
 Above, it's not true if you're using the --needs-root option or the NEEDS_ROOT environment variable, but well, you've asked for it.
+
+### NFS backend
+
+* NFS-Ganesha requires more capabilities than SSH (`SYS_ADMIN`, `DAC_READ_SEARCH`, `DAC_OVERRIDE`, `SYS_RESOURCE`, `CHOWN`, `FOWNER`, `SETUID`, `SETGID`) and runs with `seccompProfile: Unconfined`.
+* Standalone NFS pods run as root. Ephemeral NFS containers run as the workload pod's UID.
+* NFS exports use `No_Root_Squash` and `SecType = sys` (AUTH_SYS) — this is acceptable since traffic stays within the kubectl port-forward tunnel (localhost only).
 
 ## Limitations
 

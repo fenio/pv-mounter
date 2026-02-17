@@ -4,10 +4,11 @@ metadata:
   name: pv-mounter
 spec:
   version: {{ .TagName }}
-  shortDescription: Mount PVC locally using SSHFS
+  shortDescription: Mount PVC locally using SSHFS or NFS
   homepage: https://github.com/fenio/pv-mounter
   description: |
-    Plugin that allows to mount PVC locally using SSHFS
+    Plugin that allows to mount PVC locally using SSHFS or NFS.
+    Use --backend nfs for the NFS backend (NFS-Ganesha).
   platforms:
   - selector:
       matchLabels:

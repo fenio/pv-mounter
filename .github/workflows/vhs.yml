@@ -76,12 +76,10 @@ jobs:
           mkdir -p foo
 
       - name: Generate unmounted demo GIF
-        run: |
-          vhs demo/unmounted.tape
+        run: cd demo && vhs unmounted.tape
 
       - name: Generate mounted demo GIF
-        run: |
-          vhs demo/mounted.tape
+        run: cd demo && vhs mounted.tape
 
       - name: Allow passwordless sudo for kubectl
         run: |
@@ -89,8 +87,7 @@ jobs:
           sudo cp "$KUBECONFIG" /root/.kube/config
 
       - name: Generate NFS demo GIF
-        run: |
-          vhs demo/nfs.tape
+        run: cd demo && vhs nfs.tape
 
       - name: Upload GIF artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -100,7 +97,7 @@ jobs:
           retention-days: 90
 
       - name: Commit updated GIFs
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

@@ -120,10 +120,11 @@ func createNFSEphemeralContainer(ctx context.Context, clientset *kubernetes.Clie
 	if err != nil {
 		return "", err
 	}
+	runAsUser := detectPodUID(existingPod)
 	ephemeralContainerName := fmt.Sprintf("nfs-ganesha-ephemeral-%s", randSeq(5))
-	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
+	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s (uid=%d)\n", ephemeralContainerName, podName, volumeName, runAsUser)
 
-	ephemeralContainer := buildNFSEphemeralContainerSpec(ephemeralContainerName, volumeName, image)
+	ephemeralContainer := buildNFSEphemeralContainerSpec(ephemeralContainerName, volumeName, image, runAsUser)
 
 	if err := patchPodWithEphemeralContainer(ctx, clientset, namespace, podName, ephemeralContainer); err != nil {
 		return "", err
@@ -133,19 +134,33 @@ func createNFSEphemeralContainer(ctx context.Context, clientset *kubernetes.Clie
 	return ephemeralContainerName, nil
 }
 
+// detectPodUID returns the UID the workload pod runs as.
+// Checks container-level securityContext first, then pod-level, then falls back to 65534.
+func detectPodUID(pod *corev1.Pod) int64 {
+	// Check the first container's securityContext
+	if len(pod.Spec.Containers) > 0 {
+		if sc := pod.Spec.Containers[0].SecurityContext; sc != nil && sc.RunAsUser != nil {
+			return *sc.RunAsUser
+		}
+	}
+	// Check pod-level securityContext
+	if sc := pod.Spec.SecurityContext; sc != nil && sc.RunAsUser != nil {
+		return *sc.RunAsUser
+	}
+	// Fallback to nobody
+	return 65534
+}
+
 // buildNFSEphemeralContainerSpec creates the specification for an NFS ephemeral container.
-// Uses a non-root user (65534/nobody) to comply with pods that have runAsNonRoot: true.
-func buildNFSEphemeralContainerSpec(name, volumeName, image string) corev1.EphemeralContainer {
+// Uses the workload pod's UID so Ganesha can access NFS-backed volumes with the same permissions.
+func buildNFSEphemeralContainerSpec(name, volumeName, image string, runAsUser int64) corev1.EphemeralContainer {
 	imageToUse := selectNFSImage(image)
 	securityContext := getNFSSecurityContext()
-	// Ephemeral containers must respect the pod's runAsNonRoot policy.
-	// Set a non-root UID; capabilities handle file access.
-	nonRootUser := int64(65534)
-	securityContext.RunAsUser = &nonRootUser
+	securityContext.RunAsUser = &runAsUser
 
-	// With Ganesha 9.5 and lower_my_caps patched out, PROXY_V4 can
-	// re-export NFS-backed volumes even as non-root.
-	envVars := buildNFSEnvVars()
+	// Use VFS FSAL for ephemeral containers — PROXY_V4 requires privileged
+	// source ports that aren't available as non-root.
+	envVars := append(buildNFSEnvVars(), corev1.EnvVar{Name: "FORCE_VFS", Value: "true"})
 
 	return corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{

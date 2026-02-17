@@ -102,6 +102,7 @@ func TestBuildNFSEphemeralContainerSpec(t *testing.T) {
 			"nfs-ganesha-ephemeral-test",
 			"volume-name",
 			"",
+			1000,
 		)
 
 		if spec.Name != "nfs-ganesha-ephemeral-test" {
@@ -113,8 +114,11 @@ func TestBuildNFSEphemeralContainerSpec(t *testing.T) {
 		if spec.ImagePullPolicy != corev1.PullAlways {
 			t.Error("Expected ImagePullPolicy to be PullAlways")
 		}
+		if *spec.SecurityContext.RunAsUser != int64(1000) {
+			t.Errorf("Expected RunAsUser 1000, got %d", *spec.SecurityContext.RunAsUser)
+		}
 
-		// Verify env vars - only NEEDS_ROOT, no SSH_PUBLIC_KEY
+		// Verify env vars
 		envMap := make(map[string]string)
 		for _, env := range spec.Env {
 			envMap[env.Name] = env.Value
@@ -124,6 +128,9 @@ func TestBuildNFSEphemeralContainerSpec(t *testing.T) {
 		}
 		if envMap["NEEDS_ROOT"] != "true" {
 			t.Errorf("Expected NEEDS_ROOT='true', got '%s'", envMap["NEEDS_ROOT"])
+		}
+		if envMap["FORCE_VFS"] != "true" {
+			t.Errorf("Expected FORCE_VFS='true', got '%s'", envMap["FORCE_VFS"])
 		}
 
 		// Verify volume mount
@@ -144,10 +151,53 @@ func TestBuildNFSEphemeralContainerSpec(t *testing.T) {
 			"nfs-ganesha-ephemeral-custom",
 			"volume-name",
 			customImage,
+			65534,
 		)
 
 		if spec.Image != customImage {
 			t.Errorf("Expected custom image '%s', got '%s'", customImage, spec.Image)
+		}
+	})
+}
+
+func TestDetectPodUID(t *testing.T) {
+	t.Run("Container-level UID takes priority", func(t *testing.T) {
+		uid := int64(1000)
+		podUID := int64(2000)
+		pod := &corev1.Pod{
+			Spec: corev1.PodSpec{
+				SecurityContext: &corev1.PodSecurityContext{RunAsUser: &podUID},
+				Containers: []corev1.Container{
+					{SecurityContext: &corev1.SecurityContext{RunAsUser: &uid}},
+				},
+			},
+		}
+		if got := detectPodUID(pod); got != 1000 {
+			t.Errorf("Expected 1000, got %d", got)
+		}
+	})
+
+	t.Run("Pod-level UID used when container has none", func(t *testing.T) {
+		podUID := int64(2000)
+		pod := &corev1.Pod{
+			Spec: corev1.PodSpec{
+				SecurityContext: &corev1.PodSecurityContext{RunAsUser: &podUID},
+				Containers:      []corev1.Container{{Name: "app"}},
+			},
+		}
+		if got := detectPodUID(pod); got != 2000 {
+			t.Errorf("Expected 2000, got %d", got)
+		}
+	})
+
+	t.Run("Fallback to 65534 when no UID set", func(t *testing.T) {
+		pod := &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{Name: "app"}},
+			},
+		}
+		if got := detectPodUID(pod); got != 65534 {
+			t.Errorf("Expected 65534, got %d", got)
 		}
 	})
 }
@@ -178,8 +228,8 @@ func TestBuildNFSEnvVars(t *testing.T) {
 		if envMap["NEEDS_ROOT"] != "true" {
 			t.Errorf("Expected NEEDS_ROOT='true', got '%s'", envMap["NEEDS_ROOT"])
 		}
-		if envMap["LOG_LEVEL"] != "WARN" {
-			t.Errorf("Expected LOG_LEVEL='WARN', got '%s'", envMap["LOG_LEVEL"])
+		if envMap["LOG_LEVEL"] != "EVENT" {
+			t.Errorf("Expected LOG_LEVEL='EVENT', got '%s'", envMap["LOG_LEVEL"])
 		}
 	})
 }

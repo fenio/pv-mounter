@@ -69,7 +69,7 @@ func buildNFSContainer(image, cpuLimit string) corev1.Container {
 func buildNFSEnvVars() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{Name: "NEEDS_ROOT", Value: "true"},
-		{Name: "LOG_LEVEL", Value: "EVENT"},
+		{Name: "LOG_LEVEL", Value: "WARN"},
 	}
 }
 

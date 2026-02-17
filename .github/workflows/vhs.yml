@@ -62,7 +62,7 @@ jobs:
           kubectl apply -f demo/mounted-pod.yaml -n demo
 
           # Wait for PVCs to be bound
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/unmounted-pvc -n demo --timeout=120s
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/unmounted-pvc -n demo --timeout=120s || true
           kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/mounted-pvc -n demo --timeout=120s
 
           # Wait for demo-pod to be ready

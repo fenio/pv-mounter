@@ -48,29 +48,26 @@ jobs:
       - name: Install VHS and dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg ttyd zsh nfs-common
+          sudo apt-get install -y ffmpeg ttyd zsh nfs-common sshfs
           wget https://github.com/charmbracelet/vhs/releases/download/v0.10.0/vhs_0.10.0_amd64.deb
           sudo dpkg -i vhs_0.10.0_amd64.deb
 
       - name: Create demo resources
         run: |
-          # Create namespace
-          kubectl create namespace demo
-
-          # Apply demo resources
-          kubectl apply -f demo/unmounted-pvc.yaml -n demo
-          kubectl apply -f demo/mounted-pvc.yaml -n demo
-          kubectl apply -f demo/mounted-pod.yaml -n demo
+          # Apply demo resources in default namespace
+          kubectl apply -f demo/unmounted-pvc.yaml
+          kubectl apply -f demo/mounted-pvc.yaml
+          kubectl apply -f demo/mounted-pod.yaml
 
           # Wait for PVCs to be bound
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/unmounted-pvc -n demo --timeout=120s || true
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/mounted-pvc -n demo --timeout=120s
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/unmounted-pvc --timeout=120s || true
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/mounted-pvc --timeout=120s
 
           # Wait for demo-pod to be ready
-          kubectl wait --for=condition=Ready pod/demo-pod -n demo --timeout=120s
+          kubectl wait --for=condition=Ready pod/demo-pod --timeout=120s
 
-          kubectl get pvc -n demo
-          kubectl get pod -n demo
+          kubectl get pvc
+          kubectl get pod
 
           # Create mount point
           mkdir -p foo
@@ -81,10 +78,11 @@ jobs:
       - name: Generate mounted demo GIF
         run: cd demo && vhs mounted.tape
 
-      - name: Allow passwordless sudo for kubectl
+      - name: Make pv-mounter plugin available to root
         run: |
           sudo mkdir -p /root/.kube
           sudo cp "$KUBECONFIG" /root/.kube/config
+          sudo cp ~/.krew/bin/kubectl-pv_mounter /usr/local/bin/
 
       - name: Generate NFS demo GIF
         run: cd demo && vhs nfs.tape

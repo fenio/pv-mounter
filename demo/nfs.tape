@@ -18,7 +18,7 @@ Type "kubectl get pod"
 Enter
 Wait
 Sleep 1s
-Type "sudo kubectl pv-mounter mount --backend nfs demo unmounted-pvc foo"
+Type "sudo kubectl pv-mounter mount --backend nfs default unmounted-pvc foo"
 Enter
 Wait
 Sleep 1s
@@ -30,7 +30,7 @@ Type "ls foo"
 Enter
 Wait
 Sleep 1s
-Type "sudo kubectl pv-mounter clean --backend nfs demo unmounted-pvc foo"
+Type "sudo kubectl pv-mounter clean --backend nfs default unmounted-pvc foo"
 Enter
 Wait
 Sleep 1s

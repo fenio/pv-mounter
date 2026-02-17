@@ -22,7 +22,7 @@ Type "ls foo"
 Enter
 Wait
 Sleep 1s
-Type "kubectl pv-mounter mount demo mounted-pvc foo"
+Type "kubectl pv-mounter mount default mounted-pvc foo"
 Enter
 Wait
 Sleep 1s
@@ -34,7 +34,7 @@ Type "ls foo"
 Enter
 Wait
 Sleep 1s
-Type "kubectl pv-mounter clean demo mounted-pvc foo"
+Type "kubectl pv-mounter clean default mounted-pvc foo"
 Enter
 Wait
 Sleep 1s

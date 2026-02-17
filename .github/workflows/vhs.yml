@@ -70,10 +70,26 @@ jobs:
           kubectl exec demo-pod -- sh -c "touch /mnt/test/some-file && mkdir -p /mnt/test/some-directory"
 
           # Populate unmounted-pvc with sample data via temporary pod
-          kubectl run populate-pvc --image=busybox:stable --restart=Never \
-            --overrides='{"spec":{"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"unmounted-pvc"}}],"containers":[{"name":"populate-pvc","image":"busybox:stable","volumeMounts":[{"name":"data","mountPath":"/mnt/data"}]}]}}' \
-            -- sh -c "touch /mnt/data/some-file && mkdir -p /mnt/data/some-directory"
-          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/populate-pvc --timeout=60s
+          cat <<'EOF' | kubectl apply -f -
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: populate-pvc
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: populate
+                image: busybox:stable
+                command: ["sh", "-c", "touch /mnt/data/some-file && mkdir -p /mnt/data/some-directory"]
+                volumeMounts:
+                  - name: data
+                    mountPath: /mnt/data
+            volumes:
+              - name: data
+                persistentVolumeClaim:
+                  claimName: unmounted-pvc
+          EOF
+          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/populate-pvc --timeout=120s
           kubectl delete pod populate-pvc
 
           kubectl get pvc

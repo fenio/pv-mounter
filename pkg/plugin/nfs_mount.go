@@ -136,7 +136,7 @@ func buildNFSMountCommand(ctx context.Context, localMountPoint string, port int)
 	}
 	return exec.CommandContext(ctx, // #nosec G204 -- localMountPoint is user-provided, port is generated
 		"mount", "-t", "nfs4",
-		"-o", fmt.Sprintf("port=%d,vers=4.2", port),
+		"-o", fmt.Sprintf("port=%d,vers=4.2,soft,timeo=50,retrans=2,retry=0", port),
 		"127.0.0.1:/volume",
 		localMountPoint,
 	)

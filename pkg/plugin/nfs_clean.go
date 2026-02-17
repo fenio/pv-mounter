@@ -81,11 +81,12 @@ func cleanNFSRWO(ctx context.Context, clientset *kubernetes.Clientset, namespace
 	}
 	fmt.Printf("Port-forward process for pod %s killed successfully\n", podName)
 
-	err = killNFSProcessInEphemeralContainer(ctx, clientset, namespace, podName)
-	if err != nil {
-		return fmt.Errorf("failed to kill NFS process in ephemeral container: %w", err)
+	if err := killNFSProcessInEphemeralContainer(ctx, clientset, namespace, podName); err != nil {
+		fmt.Printf("Warning: could not kill NFS process in ephemeral container: %v\n", err)
+		fmt.Println("The ephemeral container will terminate when the pod is deleted.")
+	} else {
+		fmt.Printf("NFS process in ephemeral container killed successfully in pod %s\n", podName)
 	}
-	fmt.Printf("NFS process in ephemeral container killed successfully in pod %s\n", podName)
 
 	return nil
 }
@@ -110,7 +111,7 @@ func killNFSProcessInEphemeralContainer(ctx context.Context, clientset kubernete
 
 	fmt.Printf("NFS ephemeral container name is %s\n", ephemeralContainerName)
 
-	killCmd := []string{"kill", "1"}
+	killCmd := []string{"sh", "-c", "kill 1"}
 
 	cmd := exec.CommandContext(ctx, "kubectl", append([]string{"exec", podName, "-n", namespace, "-c", ephemeralContainerName, "--"}, killCmd...)...) // #nosec G204 -- podName, namespace, and ephemeralContainerName are from validated Kubernetes resources
 	cmd.Stdout = os.Stdout

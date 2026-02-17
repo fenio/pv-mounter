@@ -178,8 +178,8 @@ func TestBuildNFSEnvVars(t *testing.T) {
 		if envMap["NEEDS_ROOT"] != "true" {
 			t.Errorf("Expected NEEDS_ROOT='true', got '%s'", envMap["NEEDS_ROOT"])
 		}
-		if envMap["LOG_LEVEL"] != "EVENT" {
-			t.Errorf("Expected LOG_LEVEL='EVENT', got '%s'", envMap["LOG_LEVEL"])
+		if envMap["LOG_LEVEL"] != "WARN" {
+			t.Errorf("Expected LOG_LEVEL='WARN', got '%s'", envMap["LOG_LEVEL"])
 		}
 	})
 }

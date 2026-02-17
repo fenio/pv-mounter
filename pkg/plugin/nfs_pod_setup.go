@@ -69,7 +69,7 @@ func buildNFSContainer(image, cpuLimit string) corev1.Container {
 func buildNFSEnvVars() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{Name: "NEEDS_ROOT", Value: "true"},
-		{Name: "LOG_LEVEL", Value: "EVENT"},
+		{Name: "LOG_LEVEL", Value: "WARN"},
 	}
 }
 
@@ -143,10 +143,9 @@ func buildNFSEphemeralContainerSpec(name, volumeName, image string) corev1.Ephem
 	nonRootUser := int64(65534)
 	securityContext.RunAsUser = &nonRootUser
 
-	// Ephemeral containers use VFS FSAL instead of PROXY_V4 because
-	// PROXY_V4 needs reserved ports (<1024) which require root.
-	// VFS works since the volume is already mounted by the kubelet.
-	envVars := append(buildNFSEnvVars(), corev1.EnvVar{Name: "FORCE_VFS", Value: "true"})
+	// With Ganesha 9.5 and lower_my_caps patched out, PROXY_V4 can
+	// re-export NFS-backed volumes even as non-root.
+	envVars := buildNFSEnvVars()
 
 	return corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{

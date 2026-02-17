@@ -147,8 +147,10 @@ func detectPodUID(pod *corev1.Pod) int64 {
 	if sc := pod.Spec.SecurityContext; sc != nil && sc.RunAsUser != nil {
 		return *sc.RunAsUser
 	}
-	// Fallback to nobody
-	return 65534
+	// Fallback to root — when no runAsUser is set, containers run as UID 0.
+	// Pods with runAsNonRoot:true always have runAsUser set, so this
+	// fallback only triggers for pods that genuinely run as root.
+	return 0
 }
 
 // buildNFSEphemeralContainerSpec creates the specification for an NFS ephemeral container.

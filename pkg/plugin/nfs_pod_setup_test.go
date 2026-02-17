@@ -186,14 +186,14 @@ func TestDetectPodUID(t *testing.T) {
 		}
 	})
 
-	t.Run("Fallback to 65534 when no UID set", func(t *testing.T) {
+	t.Run("Fallback to 0 when no UID set", func(t *testing.T) {
 		pod := &corev1.Pod{
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{{Name: "app"}},
 			},
 		}
-		if got := detectPodUID(pod); got != 65534 {
-			t.Errorf("Expected 65534, got %d", got)
+		if got := detectPodUID(pod); got != 0 {
+			t.Errorf("Expected 0, got %d", got)
 		}
 	})
 }

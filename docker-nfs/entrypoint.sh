@@ -6,8 +6,12 @@ set -e
 mkdir -p /tmp/ganesha
 CONF="/tmp/ganesha/ganesha.conf"
 
-# Populate /etc/mtab (world-writable regular file from Dockerfile)
-cat /proc/mounts > /etc/mtab
+# Populate /etc/mtab — some runtimes mount it as a symlink to /proc/self/mounts
+# which can't be written to (EINVAL). Replace the symlink with a regular file.
+if [ -L /etc/mtab ] || ! cat /proc/mounts > /etc/mtab 2>/dev/null; then
+    rm -f /etc/mtab 2>/dev/null || true
+    cat /proc/mounts > /etc/mtab 2>/dev/null || true
+fi
 
 # Detect if /volume is an NFS mount by checking /proc/mounts
 MOUNT_LINE=$(grep ' /volume ' /proc/mounts | head -1)
@@ -24,11 +28,13 @@ if [ "$FORCE_VFS" = "true" ]; then
     if [ "$FS_TYPE" = "nfs" ] || [ "$FS_TYPE" = "nfs4" ]; then
         DEVICE=$(echo "$MOUNT_LINE" | awk '{print $1}')
         OPTIONS=$(echo "$MOUNT_LINE" | awk '{print $4}')
+        rm -f /etc/mtab 2>/dev/null || true
         grep -v ' /volume ' /proc/mounts > /etc/mtab
         echo "$DEVICE /volume ext4 $OPTIONS 0 0" >> /etc/mtab
         echo "Created synthetic /etc/mtab to present /volume as ext4" >&2
     else
-        cat /proc/mounts > /etc/mtab
+        rm -f /etc/mtab 2>/dev/null || true
+        cat /proc/mounts > /etc/mtab 2>/dev/null || true
     fi
     FSAL_BLOCK="FSAL { Name = VFS; }"
     EXPORT_PATH="Path = /volume; Filesystem_id = 1.1;"

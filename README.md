@@ -81,6 +81,8 @@ kubectl pv-mounter clean --backend nfs <namespace> <pvc-name> <local-mount-point
 
 See the demo below for more details.
 
+![Demo-nfs](nfs.gif)
+
 ## Prerequisites
 
 * **SSH backend (default):** You need a working SSHFS setup.

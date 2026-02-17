@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - 'demo/**/*.tape'
+      - 'demo/**/*.yaml'
       - 'cmd/**'
       - 'pkg/**'
   pull_request:
     paths:
       - 'demo/**/*.tape'
+      - 'demo/**/*.yaml'
       - 'cmd/**'
       - 'pkg/**'
   workflow_dispatch:
@@ -45,32 +47,46 @@ jobs:
       - name: Install VHS and dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg ttyd zsh
+          sudo apt-get install -y ffmpeg ttyd zsh nfs-common
           wget https://github.com/charmbracelet/vhs/releases/download/v0.10.0/vhs_0.10.0_amd64.deb
           sudo dpkg -i vhs_0.10.0_amd64.deb
 
-      - name: Create test PVCs and pods
+      - name: Create demo resources
         run: |
           # Create namespace
           kubectl create namespace demo
-          
-          # Apply test resources
-          kubectl apply -f test/1-pvc.yaml -n demo
-          kubectl apply -f test/2-pvc.yaml -n demo
-          
+
+          # Apply demo resources
+          kubectl apply -f demo/unmounted-pvc.yaml -n demo
+          kubectl apply -f demo/mounted-pvc.yaml -n demo
+          kubectl apply -f demo/mounted-pod.yaml -n demo
+
           # Wait for PVCs to be bound
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-1 -n demo --timeout=120s || true
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/pvc-2 -n demo --timeout=120s || true
-          
-          kubectl describe pvc pvc-1 -n demo
-          kubectl describe pvc pvc-2 -n demo
-         
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/unmounted-pvc -n demo --timeout=120s
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/mounted-pvc -n demo --timeout=120s
+
+          # Wait for demo-pod to be ready
+          kubectl wait --for=condition=Ready pod/demo-pod -n demo --timeout=120s
+
+          kubectl get pvc -n demo
+          kubectl get pod -n demo
+
           # Create mount point
           mkdir -p foo
-          
-      - name: 🧪 Generate the gif with vhs
+
+      - name: Generate unmounted demo GIF
         run: |
           vhs demo/unmounted.tape
+
+      - name: Generate mounted demo GIF
+        run: |
+          vhs demo/mounted.tape
+
+      - name: Generate NFS demo GIF
+        env:
+          KUBECONFIG: ${{ env.KUBECONFIG }}
+        run: |
+          sudo --preserve-env=KUBECONFIG vhs demo/nfs.tape
 
       - name: Upload GIF artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

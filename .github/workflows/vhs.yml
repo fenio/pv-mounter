@@ -66,11 +66,21 @@ jobs:
           # Wait for demo-pod to be ready
           kubectl wait --for=condition=Ready pod/demo-pod --timeout=120s
 
+          # Populate mounted-pvc with sample data via demo-pod
+          kubectl exec demo-pod -- sh -c "touch /mnt/test/some-file && mkdir -p /mnt/test/some-directory"
+
+          # Populate unmounted-pvc with sample data via temporary pod
+          kubectl run populate-pvc --image=busybox:stable --restart=Never \
+            --overrides='{"spec":{"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"unmounted-pvc"}}],"containers":[{"name":"populate-pvc","image":"busybox:stable","volumeMounts":[{"name":"data","mountPath":"/mnt/data"}]}]}}' \
+            -- sh -c "touch /mnt/data/some-file && mkdir -p /mnt/data/some-directory"
+          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/populate-pvc --timeout=60s
+          kubectl delete pod populate-pvc
+
           kubectl get pvc
           kubectl get pod
 
-          # Create mount point
-          mkdir -p foo
+          # Create mount point (inside demo/ where tapes run)
+          mkdir -p demo/foo
 
       - name: Generate unmounted demo GIF
         run: cd demo && vhs unmounted.tape

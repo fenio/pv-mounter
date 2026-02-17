@@ -1,5 +1,5 @@
 ### Stage 1: Build NFS-Ganesha 9.5 from source
-FROM debian:stable-slim AS builder
+FROM debian:stable-slim@sha256:4448d44b91bf4a13cb1b4e02d9d5f87ed40621d6e33f0ae7b6ddf71d57e29364 AS builder
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -52,7 +52,7 @@ RUN mkdir build && cd build && cmake \
     make DESTDIR=/install install
 
 ### Stage 2: Runtime image
-FROM debian:stable-slim
+FROM debian:stable-slim@sha256:4448d44b91bf4a13cb1b4e02d9d5f87ed40621d6e33f0ae7b6ddf71d57e29364
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN apt-get update && \

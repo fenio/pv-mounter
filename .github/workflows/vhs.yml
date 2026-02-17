@@ -31,7 +31,7 @@ jobs:
 
       - name: Setup KubeSolo
         id: kubesolo
-        uses: fenio/setup-kubesolo@v5
+        uses: fenio/setup-kubesolo@1a38a78a4988905e43d8aad6476392d6a3120cc6 # v5
         with:
           local-storage-shared-path: '/opt/local-path-provisioner'
 

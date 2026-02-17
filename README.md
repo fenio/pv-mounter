@@ -50,6 +50,8 @@ It performs a few tasks. In the case of volumes with RWX (ReadWriteMany) access 
 * Creates a port-forward to make it locally accessible.
 * Mounts the volume locally using SSHFS.
 
+<img width="1159" height="1167" alt="image" src="https://github.com/user-attachments/assets/a75627fd-bc2b-4b51-b374-e545e7a938f9" />
+
 ![RWX](rwx.png)
 
 For already mounted RWO volumes, it's a bit more complex:

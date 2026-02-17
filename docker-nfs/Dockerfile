@@ -16,6 +16,13 @@ RUN git clone --branch V9.5 --depth 1 --recurse-submodules \
     https://github.com/nfs-ganesha/nfs-ganesha.git
 
 WORKDIR /build/nfs-ganesha/src
+
+# Prevent Ganesha from dropping capabilities at startup.
+# lower_my_caps() replaces all capabilities with a minimal set, which
+# strips the DAC_READ_SEARCH/DAC_OVERRIDE caps needed for non-root
+# ephemeral containers to access volume files.
+RUN sed -i 's/lower_my_caps();/\/\/ lower_my_caps(); \/\/ patched: keep container caps/' MainNFSD/nfs_main.c
+
 RUN mkdir build && cd build && cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \

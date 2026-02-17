@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git cmake gcc g++ make \
     bison flex \
     libdbus-1-dev liburcu-dev libkrb5-dev libcap-dev \
-    libnfsidmap-dev libblkid-dev uuid-dev \
+    libnfsidmap-dev libblkid-dev uuid-dev libnsl-dev \
     libjemalloc-dev libacl1-dev \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -51,7 +51,7 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     liburcu8t64 libkrb5-3 libcap2 libnfsidmap1 \
-    libblkid1 libuuid1 libjemalloc2 libacl1 libdbus-1-3 && \
+    libblkid1 libuuid1 libjemalloc2 libacl1 libdbus-1-3 libnsl2 && \
     apt-get clean && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \

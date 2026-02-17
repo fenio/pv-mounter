@@ -32,7 +32,7 @@ jobs:
 
       - name: Setup KubeSolo
         id: kubesolo
-        uses: fenio/setup-kubesolo@1a38a78a4988905e43d8aad6476392d6a3120cc6 # v5
+        uses: fenio/setup-kubesolo@c1b74d8908188836021c63dcbb11fd3747996853 # v5.0.4
         with:
           local-storage-shared-path: '/opt/local-path-provisioner'
 
@@ -68,29 +68,6 @@ jobs:
 
           # Populate mounted-pvc with sample data via demo-pod
           kubectl exec demo-pod -- sh -c "touch /mnt/test/some-file && mkdir -p /mnt/test/some-directory"
-
-          # Populate unmounted-pvc with sample data via temporary pod
-          cat <<'EOF' | kubectl apply -f -
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            name: populate-pvc
-          spec:
-            restartPolicy: Never
-            containers:
-              - name: populate
-                image: busybox:stable
-                command: ["sh", "-c", "touch /mnt/data/some-file && mkdir -p /mnt/data/some-directory"]
-                volumeMounts:
-                  - name: data
-                    mountPath: /mnt/data
-            volumes:
-              - name: data
-                persistentVolumeClaim:
-                  claimName: unmounted-pvc
-          EOF
-          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/populate-pvc --timeout=120s
-          kubectl delete pod populate-pvc
 
           kubectl get pvc
           kubectl get pod

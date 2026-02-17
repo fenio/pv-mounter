@@ -94,7 +94,7 @@ func getNFSSecurityContext() *corev1.SecurityContext {
 		ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
-			Add:  []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID"},
+			Add:  []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID", "NET_BIND_SERVICE"},
 		},
 		SeccompProfile: &seccompProfile,
 	}
@@ -158,9 +158,9 @@ func buildNFSEphemeralContainerSpec(name, volumeName, image string, runAsUser in
 	securityContext := getNFSSecurityContext()
 	securityContext.RunAsUser = &runAsUser
 
-	// Use VFS FSAL for ephemeral containers — PROXY_V4 requires privileged
-	// source ports that aren't available as non-root.
-	envVars := append(buildNFSEnvVars(), corev1.EnvVar{Name: "FORCE_VFS", Value: "true"})
+	// With lower_my_caps patched and NET_BIND_SERVICE preserved, PROXY_V4
+	// can use reserved source ports via bindresvport() even as non-root.
+	envVars := buildNFSEnvVars()
 
 	return corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{

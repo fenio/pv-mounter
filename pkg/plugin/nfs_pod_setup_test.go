@@ -79,7 +79,7 @@ func TestGetNFSSecurityContext(t *testing.T) {
 			t.Errorf("Expected ALL capability to be dropped, got %v", secCtx.Capabilities.Drop)
 		}
 
-		requiredCaps := []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID"}
+		requiredCaps := []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID", "NET_BIND_SERVICE"}
 		addedCaps := make(map[corev1.Capability]bool)
 		for _, cap := range secCtx.Capabilities.Add {
 			addedCaps[cap] = true
@@ -129,10 +129,6 @@ func TestBuildNFSEphemeralContainerSpec(t *testing.T) {
 		if envMap["NEEDS_ROOT"] != "true" {
 			t.Errorf("Expected NEEDS_ROOT='true', got '%s'", envMap["NEEDS_ROOT"])
 		}
-		if envMap["FORCE_VFS"] != "true" {
-			t.Errorf("Expected FORCE_VFS='true', got '%s'", envMap["FORCE_VFS"])
-		}
-
 		// Verify volume mount
 		if len(spec.VolumeMounts) != 1 {
 			t.Fatalf("Expected 1 volume mount, got %d", len(spec.VolumeMounts))

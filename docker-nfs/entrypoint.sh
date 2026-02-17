@@ -41,7 +41,7 @@ elif [ "$FS_TYPE" = "nfs" ] || [ "$FS_TYPE" = "nfs4" ]; then
     echo "Detected NFS-backed volume: server=$NFS_SERVER path=$NFS_PATH" >&2
     echo "Using PROXY_V4 FSAL to re-export" >&2
 
-    FSAL_BLOCK="FSAL { Name = PROXY_V4; Srv_Addr = ${NFS_SERVER}; Use_Privileged_Client_Port = false; }"
+    FSAL_BLOCK="FSAL { Name = PROXY_V4; Srv_Addr = ${NFS_SERVER}; }"
     EXPORT_PATH="Path = ${NFS_PATH};"
 else
     echo "Detected local/block-backed volume (fstype=$FS_TYPE), using VFS FSAL" >&2

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,8 +14,12 @@ import (
 
 // cleanNFS handles cleanup for NFS-mounted PVCs.
 func cleanNFS(ctx context.Context, namespace, pvcName, localMountPoint string) error {
-	// NFS always uses umount
-	umountCmd := exec.CommandContext(ctx, "umount", localMountPoint) // #nosec G204 -- localMountPoint is user-provided
+	var umountCmd *exec.Cmd
+	if runtime.GOOS == "darwin" {
+		umountCmd = exec.CommandContext(ctx, "umount", "-f", localMountPoint) // #nosec G204 -- localMountPoint is user-provided
+	} else {
+		umountCmd = exec.CommandContext(ctx, "umount", localMountPoint) // #nosec G204 -- localMountPoint is user-provided
+	}
 	umountCmd.Stdout = os.Stdout
 	umountCmd.Stderr = os.Stderr
 	if err := umountCmd.Run(); err != nil {

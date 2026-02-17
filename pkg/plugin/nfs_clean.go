@@ -110,7 +110,7 @@ func killNFSProcessInEphemeralContainer(ctx context.Context, clientset kubernete
 
 	fmt.Printf("NFS ephemeral container name is %s\n", ephemeralContainerName)
 
-	killCmd := []string{"pkill", "ganesha.nfsd"}
+	killCmd := []string{"kill", "1"}
 
 	cmd := exec.CommandContext(ctx, "kubectl", append([]string{"exec", podName, "-n", namespace, "-c", ephemeralContainerName, "--"}, killCmd...)...) // #nosec G204 -- podName, namespace, and ephemeralContainerName are from validated Kubernetes resources
 	cmd.Stdout = os.Stdout

@@ -69,6 +69,29 @@ jobs:
           # Populate mounted-pvc with sample data via demo-pod
           kubectl exec demo-pod -- sh -c "touch /mnt/test/some-file && mkdir -p /mnt/test/some-directory"
 
+          # Populate unmounted-pvc with sample data via temporary pod
+          cat <<'POPEOF' | kubectl apply -f -
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: populate-pvc
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: populate
+                image: busybox:stable
+                command: ["sh", "-c", "touch /mnt/data/some-file && mkdir -p /mnt/data/some-directory"]
+                volumeMounts:
+                  - name: data
+                    mountPath: /mnt/data
+            volumes:
+              - name: data
+                persistentVolumeClaim:
+                  claimName: unmounted-pvc
+          POPEOF
+          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/populate-pvc --timeout=120s
+          kubectl delete pod populate-pvc
+
           kubectl get pvc
           kubectl get pod
 

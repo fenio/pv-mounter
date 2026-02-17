@@ -82,11 +82,14 @@ jobs:
         run: |
           vhs demo/mounted.tape
 
-      - name: Generate NFS demo GIF
-        env:
-          KUBECONFIG: ${{ env.KUBECONFIG }}
+      - name: Allow passwordless sudo for kubectl
         run: |
-          sudo --preserve-env=KUBECONFIG vhs demo/nfs.tape
+          sudo mkdir -p /root/.kube
+          sudo cp "$KUBECONFIG" /root/.kube/config
+
+      - name: Generate NFS demo GIF
+        run: |
+          vhs demo/nfs.tape
 
       - name: Upload GIF artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

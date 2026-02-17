@@ -6,7 +6,7 @@ test:
 
 .PHONY: bin
 bin: fmt vet
-	go build -o bin/pv-mounter github.com/fenio/pv-mounter/cmd/plugin
+	go build -ldflags "-X github.com/fenio/pv-mounter/pkg/version.version=dev" -o bin/pv-mounter github.com/fenio/pv-mounter/cmd/plugin
 
 .PHONY: fmt
 fmt:

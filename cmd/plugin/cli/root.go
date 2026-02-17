@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fenio/pv-mounter/pkg/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -22,13 +23,15 @@ func RootCmd() *cobra.Command {
 	}
 
 	rootCmd = &cobra.Command{
-		Use:   "pv-mounter",
-		Short: "Mount and unmount Kubernetes PersistentVolumes using SSHFS",
+		Use:     "pv-mounter",
+		Short:   "Mount and unmount Kubernetes PersistentVolumes using SSHFS or NFS",
+		Version: version.Version(),
 		Long: `pv-mounter is a kubectl plugin that allows you to easily mount and unmount
-Kubernetes PersistentVolumeClaims (PVCs) locally via SSHFS.
+Kubernetes PersistentVolumeClaims (PVCs) locally using SSHFS or NFS-Ganesha.
 
 It transparently manages pods, ephemeral containers, port-forwarding,
-and SSHFS connections.`,
+and mount connections. Use the --backend flag on the mount command to
+select between ssh (default) and nfs backends.`,
 	}
 
 	if strings.HasPrefix(filepath.Base(os.Args[0]), "kubectl-") {

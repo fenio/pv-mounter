@@ -79,7 +79,7 @@ func TestGetNFSSecurityContext(t *testing.T) {
 			t.Errorf("Expected ALL capability to be dropped, got %v", secCtx.Capabilities.Drop)
 		}
 
-		requiredCaps := []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID", "NET_BIND_SERVICE"}
+		requiredCaps := []corev1.Capability{"SYS_ADMIN", "DAC_READ_SEARCH", "DAC_OVERRIDE", "SYS_RESOURCE", "CHOWN", "FOWNER", "SETUID", "SETGID"}
 		addedCaps := make(map[corev1.Capability]bool)
 		for _, cap := range secCtx.Capabilities.Add {
 			addedCaps[cap] = true

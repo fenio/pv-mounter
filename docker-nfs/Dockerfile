@@ -57,7 +57,7 @@ FROM debian:stable-slim
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    liburcu8t64 libkrb5-3 libcap2 libnfsidmap1 \
+    liburcu8t64 libkrb5-3 libcap2 libcap2-bin libnfsidmap1 \
     libblkid1 libuuid1 libjemalloc2 libacl1 libdbus-1-3 libnsl2 && \
     apt-get clean && \
     apt-get autoremove -y && \
@@ -66,6 +66,11 @@ RUN apt-get update && \
     rm -f /etc/mtab && touch /etc/mtab && chmod 666 /etc/mtab
 
 COPY --from=builder /install/usr /usr
+
+# Set file capabilities so ganesha.nfsd gets caps when exec'd by non-root.
+# Without this, bash drops ambient capabilities before exec, leaving the
+# process with no effective capabilities despite Kubernetes granting them.
+RUN setcap cap_sys_admin,cap_dac_read_search,cap_dac_override,cap_sys_resource,cap_chown,cap_fowner,cap_setuid,cap_setgid+eip /usr/bin/ganesha.nfsd
 
 # Copy configuration and entrypoint
 COPY ganesha.conf /etc/ganesha/ganesha.conf

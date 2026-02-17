@@ -149,6 +149,9 @@ jobs:
           ls -l foo/bar
           ./bin/pv-mounter clean default pvc-9 foo
 
+      - name: Pre-pull NFS image into minikube
+        run: minikube image pull bfenski/nfs-ganesha:latest
+
       - name: '[TEST-NFS] PVC with RWX access mode'
         run: |
           sudo KUBECONFIG=$HOME/.kube/config ./bin/pv-mounter mount --backend nfs default pvc-1 foo
@@ -169,6 +172,18 @@ jobs:
           sudo touch foo/bar-nfs
           ls -l foo/bar-nfs
           sudo KUBECONFIG=$HOME/.kube/config ./bin/pv-mounter clean --backend nfs default pvc-4 foo
+
+      - name: Debug NFS pod failure
+        if: failure()
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -o wide
+          echo "=== NFS Pod Describe ==="
+          kubectl describe pod -l backend=nfs || true
+          echo "=== NFS Pod Logs ==="
+          kubectl logs -l backend=nfs --tail=50 || true
+          echo "=== Events ==="
+          kubectl get events --sort-by='.lastTimestamp' | tail -30
 
       - name: Delete PODs and PVCs
         run: kubectl delete -f test --force --grace-period=0

@@ -40,6 +40,8 @@ Having the ability to work on these files locally greatly simplifies this task. 
 
 ## What exactly does it do?
 
+![pv-mounter](images/pv-mounter.png)
+
 pv-mounter supports two backends: **SSH** (default) and **NFS** (`--backend nfs`). Both work the same way depending on the volume's access mode.
 
 For RWX (ReadWriteMany) volumes or unmounted RWO (ReadWriteOnce) volumes:

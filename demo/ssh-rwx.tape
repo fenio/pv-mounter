@@ -10,6 +10,10 @@ Set WindowBar Colorful
 Set WaitTimeout 30s
 Output ../ssh-rwx.gif
 Sleep 3s
+Type "kubectl pv-mounter --version"
+Enter
+Wait
+Sleep 1s
 Type "kubectl get pvc"
 Enter
 Wait

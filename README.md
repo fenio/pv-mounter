@@ -38,45 +38,21 @@ I published it using the Apache-2.0 license because the initial [repository](htt
 I often need to copy some files from my [homelab](https://github.com/fenio/homelab) which is running on Kubernetes.
 Having the ability to work on these files locally greatly simplifies this task. Thus, pv-mounter was born to automate that process.
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=fenio/pv-mounter&type=Date)](https://star-history.com/#fenio/pv-mounter&Date)
-
 ## What exactly does it do?
 
-It performs a few tasks. In the case of volumes with RWX (ReadWriteMany) access mode or unmounted RWO (ReadWriteOnce):
+pv-mounter supports two backends: **SSH** (default) and **NFS** (`--backend nfs`). Both work the same way depending on the volume's access mode.
 
-* Spawns a POD with a minimalistic image that contains an SSH daemon and binds it to the existing PVC.
+For RWX (ReadWriteMany) volumes or unmounted RWO (ReadWriteOnce) volumes:
+
+* Spawns a standalone Pod with the chosen backend (SSH daemon or NFS-Ganesha) and binds it to the existing PVC.
 * Creates a port-forward to make it locally accessible.
-* Mounts the volume locally using SSHFS.
-
-![pv-mounter](pv-mounter.png)
+* Mounts the volume locally using SSHFS or NFSv4.
 
 For already mounted RWO volumes:
 
-* Creates an ephemeral container with an SSH daemon within the POD that currently mounts the volume.
-* Creates a port-forward directly to the workload POD to make it locally accessible.
-* Mounts the volume locally using SSHFS.
-
-
-### NFS backend
-
-As an alternative to SSHFS, pv-mounter supports an NFS backend using [NFS-Ganesha](https://github.com/nfs-ganesha/nfs-ganesha). This can offer better performance and doesn't require SSHFS on the client. Use the `--backend nfs` flag to enable it.
-
-The NFS backend works the same way as SSH for both RWX and RWO volumes — it creates a standalone pod or ephemeral container running NFS-Ganesha, sets up port-forwarding, and mounts the volume locally via NFSv4.
-
-**Requirements:**
-* macOS: NFS client is built-in, no extra software needed.
-* Linux: Install `nfs-common` (Debian/Ubuntu) or `nfs-utils` (RHEL/Fedora).
-
-**Usage:**
-```
-kubectl pv-mounter mount --backend nfs <namespace> <pvc-name> <local-mount-point>
-kubectl pv-mounter clean --backend nfs <namespace> <pvc-name> <local-mount-point>
-```
-
-See the demo below for more details.
-
+* Creates an ephemeral container with the chosen backend within the Pod that currently mounts the volume.
+* Creates a port-forward directly to the workload Pod to make it locally accessible.
+* Mounts the volume locally using SSHFS or NFSv4.
 
 ## Prerequisites
 
@@ -103,12 +79,12 @@ Or you can simply grab binaries from [releases](https://github.com/fenio/pv-moun
 
 ## Security
 
-I spent quite some time to make the solution as secure as possible.
+I spent quite some time making the solution as secure as possible.
 
 ### SSH backend
 
 * SSH keys used for connections between various components are generated every time from scratch and once you wipe the environment clean, you won't be able to connect back into it using the same credentials.
-* Containers / PODs are using minimal possible privileges:
+* Containers / Pods are using minimal possible privileges:
 
 ```
 allowPrivilegeEscalation: false
@@ -140,35 +116,35 @@ However, ephemeral containers can't be removed or deleted. That's the way Kubern
 As part of the cleanup, this tool kills the process that keeps its ephemeral container alive.
 I confirmed it also kills other processes that were running in that container, but the container itself remains in a limbo state.
 
+## Windows
+
+Since I can't test Windows binaries, they are not included. However, since there seems to exist a working Windows implementation of SSHFS, in theory it should work.
+
 ## Demos
 
 Created with [VHS](https://github.com/charmbracelet/vhs) tool.
 
 The demo GIFs are automatically regenerated when code or tape files change.
 
-## SSH 
+### SSH
 
-### RWX or unmounted RWO volume
+#### RWX or unmounted RWO volume
 
 ![ssh-rwx](ssh-rwx.gif)
 
-### Mounted RWO volume
+#### Mounted RWO volume
 
 ![ssh-rwo](ssh-rwo.gif)
 
-## NFS
+### NFS
 
-### RWX or unmounted RWO volume
+#### RWX or unmounted RWO volume
 
 ![nfs-rwx](nfs-rwx.gif)
 
-### Mounted RWO volume
+#### Mounted RWO volume
 
 ![nfs-rwo](nfs-rwo.gif)
-
-### Windows
-
-Since I can't test Windows binaries, they are not included. However, since there seems to exist a working Windows implementation of SSHFS, in theory it should work.
 
 ## FAQ
 
@@ -179,3 +155,7 @@ Ask more questions, if you like ;)
 You can add a label to the namespace you want the pod to be spawned in, to create an exception.
 
 `kubectl label namespace NAMESPACE-NAME pod-security.kubernetes.io/enforce=privileged`
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=fenio/pv-mounter&type=Date)](https://star-history.com/#fenio/pv-mounter&Date)

@@ -130,21 +130,21 @@ The demo GIFs are automatically regenerated when code or tape files change.
 
 #### RWX or unmounted RWO volume
 
-![ssh-rwx](ssh-rwx.gif)
+![ssh-rwx](images/ssh-rwx.gif)
 
 #### Mounted RWO volume
 
-![ssh-rwo](ssh-rwo.gif)
+![ssh-rwo](images/ssh-rwo.gif)
 
 ### NFS
 
 #### RWX or unmounted RWO volume
 
-![nfs-rwx](nfs-rwx.gif)
+![nfs-rwx](images/nfs-rwx.gif)
 
 #### Mounted RWO volume
 
-![nfs-rwo](nfs-rwo.gif)
+![nfs-rwo](images/nfs-rwo.gif)
 
 ## FAQ
 

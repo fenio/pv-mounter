@@ -120,7 +120,7 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: demo-gifs
-          path: '*.gif'
+          path: 'images/*.gif'
           retention-days: 90
 
       - name: Commit updated GIFs
@@ -128,7 +128,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f *.gif
+          git add -f images/*.gif
           if git diff --quiet --staged; then
             echo "No changes to commit"
           else

@@ -8,7 +8,7 @@ Set Height 600
 Set TypingSpeed 120ms
 Set WindowBar Colorful
 Set WaitTimeout 30s
-Output ../ssh-rwo.gif
+Output ../images/ssh-rwo.gif
 Sleep 3s
 Type "kubectl pv-mounter --version"
 Enter

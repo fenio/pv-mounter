@@ -50,18 +50,14 @@ It performs a few tasks. In the case of volumes with RWX (ReadWriteMany) access 
 * Creates a port-forward to make it locally accessible.
 * Mounts the volume locally using SSHFS.
 
-<img width="1159" height="1167" alt="image" src="https://github.com/user-attachments/assets/a75627fd-bc2b-4b51-b374-e545e7a938f9" />
+[pv-mounter](pv-mounter.png)
 
-![RWX](rwx.png)
-
-For already mounted RWO volumes, it's a bit more complex:
+For already mounted RWO volumes:
 
 * Creates an ephemeral container with an SSH daemon within the POD that currently mounts the volume.
 * Creates a port-forward directly to the workload POD to make it locally accessible.
 * Mounts the volume locally using SSHFS.
 
-
-![RWO](rwo.png)
 
 ### NFS backend
 
@@ -81,7 +77,6 @@ kubectl pv-mounter clean --backend nfs <namespace> <pvc-name> <local-mount-point
 
 See the demo below for more details.
 
-![Demo-nfs](nfs.gif)
 
 ## Prerequisites
 
@@ -145,19 +140,31 @@ However, ephemeral containers can't be removed or deleted. That's the way Kubern
 As part of the cleanup, this tool kills the process that keeps its ephemeral container alive.
 I confirmed it also kills other processes that were running in that container, but the container itself remains in a limbo state.
 
-## Demo
+## Demos
 
-Created with [VHS](https://github.com/charmbracelet/vhs) tool and automated via [vhs-action](https://github.com/charmbracelet/vhs-action).
+Created with [VHS](https://github.com/charmbracelet/vhs) tool.
 
 The demo GIFs are automatically regenerated when code or tape files change.
 
+## SSH 
+
 ### RWX or unmounted RWO volume
 
-![Demo-unmounted](unmounted.gif)
+![ssh-rwx](ssh-rwx.gif)
 
 ### Mounted RWO volume
 
-![Demo-mounted](mounted.gif)
+![ssh-rwo](ssh-rwo.gif)
+
+## NFS
+
+### RWX or unmounted RWO volume
+
+![nfs-rwx](nfs-rwx.gif)
+
+### Mounted RWO volume
+
+![nfs-rwo](nfs-rwo.gif)
 
 ### Windows
 

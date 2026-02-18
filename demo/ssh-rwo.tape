@@ -5,7 +5,7 @@ Set Padding 10
 Set LineHeight 1.2
 Set Width 1500
 Set Height 600
-Set TypingSpeed 180ms
+Set TypingSpeed 150ms
 Set WindowBar Colorful
 Set WaitTimeout 30s
 Output ../ssh-rwo.gif

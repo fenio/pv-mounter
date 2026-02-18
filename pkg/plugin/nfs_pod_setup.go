@@ -53,7 +53,7 @@ func buildNFSContainer(image, cpuLimit string) corev1.Container {
 	resources := buildResourceRequirements(cpuLimit)
 
 	return corev1.Container{
-		Name:            "nfs-ganesha",
+		Name:            "volume-exposer",
 		Image:           imageToUse,
 		ImagePullPolicy: corev1.PullAlways,
 		Ports: []corev1.ContainerPort{
@@ -121,7 +121,7 @@ func createNFSEphemeralContainer(ctx context.Context, clientset *kubernetes.Clie
 		return "", err
 	}
 	runAsUser := detectPodUID(existingPod)
-	ephemeralContainerName := fmt.Sprintf("nfs-ganesha-ephemeral-%s", randSeq(5))
+	ephemeralContainerName := fmt.Sprintf("volume-exposer-%s", randSeq(5))
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s (uid=%d)\n", ephemeralContainerName, podName, volumeName, runAsUser)
 
 	ephemeralContainer := buildNFSEphemeralContainerSpec(ephemeralContainerName, volumeName, image, runAsUser)

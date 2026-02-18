@@ -12,8 +12,8 @@ func TestCreateNFSPodSpec(t *testing.T) {
 		if podSpec.Name != "test-pod" {
 			t.Errorf("Expected pod name 'test-pod', got '%s'", podSpec.Name)
 		}
-		if podSpec.Spec.Containers[0].Name != "nfs-ganesha" {
-			t.Errorf("Expected container name 'nfs-ganesha', got '%s'", podSpec.Spec.Containers[0].Name)
+		if podSpec.Spec.Containers[0].Name != "volume-exposer" {
+			t.Errorf("Expected container name 'volume-exposer', got '%s'", podSpec.Spec.Containers[0].Name)
 		}
 		if podSpec.Spec.Containers[0].Ports[0].ContainerPort != int32(DefaultNFSPort) {
 			t.Errorf("Expected container port %d, got %d", DefaultNFSPort, podSpec.Spec.Containers[0].Ports[0].ContainerPort)
@@ -99,14 +99,14 @@ func TestGetNFSSecurityContext(t *testing.T) {
 func TestBuildNFSEphemeralContainerSpec(t *testing.T) {
 	t.Run("Build NFS ephemeral container spec", func(t *testing.T) {
 		spec := buildNFSEphemeralContainerSpec(
-			"nfs-ganesha-ephemeral-test",
+			"volume-exposer-test",
 			"volume-name",
 			"",
 			1000,
 		)
 
-		if spec.Name != "nfs-ganesha-ephemeral-test" {
-			t.Errorf("Expected name 'nfs-ganesha-ephemeral-test', got '%s'", spec.Name)
+		if spec.Name != "volume-exposer-test" {
+			t.Errorf("Expected name 'volume-exposer-test', got '%s'", spec.Name)
 		}
 		if spec.Image != NFSImage {
 			t.Errorf("Expected image '%s', got '%s'", NFSImage, spec.Image)
@@ -144,7 +144,7 @@ func TestBuildNFSEphemeralContainerSpec(t *testing.T) {
 	t.Run("Build NFS ephemeral container spec with custom image", func(t *testing.T) {
 		customImage := "my-custom-nfs:v2"
 		spec := buildNFSEphemeralContainerSpec(
-			"nfs-ganesha-ephemeral-custom",
+			"volume-exposer-custom",
 			"volume-name",
 			customImage,
 			65534,

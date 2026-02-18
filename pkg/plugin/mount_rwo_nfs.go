@@ -45,7 +45,7 @@ func findRunningNFSEphemeralContainer(ctx context.Context, clientset *kubernetes
 	}
 
 	for _, status := range pod.Status.EphemeralContainerStatuses {
-		if strings.HasPrefix(status.Name, "nfs-ganesha-ephemeral-") && status.State.Running != nil {
+		if strings.HasPrefix(status.Name, "volume-exposer-") && status.State.Running != nil {
 			return status.Name, nil
 		}
 	}

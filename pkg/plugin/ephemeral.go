@@ -24,7 +24,7 @@ func createEphemeralContainer(ctx context.Context, clientset *kubernetes.Clients
 	if err != nil {
 		return "", err
 	}
-	ephemeralContainerName := fmt.Sprintf("volume-exposer-ephemeral-%s", randSeq(5))
+	ephemeralContainerName := fmt.Sprintf("volume-exposer-%s", randSeq(5))
 	fmt.Printf("Adding ephemeral container %s to pod %s with volume name %s\n", ephemeralContainerName, podName, volumeName)
 
 	ephemeralContainer := buildEphemeralContainerSpec(ephemeralContainerName, volumeName, publicKey, needsRoot, image)

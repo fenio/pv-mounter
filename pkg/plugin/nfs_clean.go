@@ -103,10 +103,10 @@ func killNFSProcessInEphemeralContainer(ctx context.Context, clientset kubernete
 		return fmt.Errorf("failed to get existing pod: %w", err)
 	}
 
-	// Find the NFS ephemeral container (name prefix nfs-ganesha-ephemeral-)
+	// Find the NFS ephemeral container (name prefix volume-exposer-)
 	ephemeralContainerName := ""
 	for _, ec := range existingPod.Spec.EphemeralContainers {
-		if strings.HasPrefix(ec.Name, "nfs-ganesha-ephemeral-") {
+		if strings.HasPrefix(ec.Name, "volume-exposer-") {
 			ephemeralContainerName = ec.Name
 		}
 	}

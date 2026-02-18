@@ -133,6 +133,10 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "chore: update demo GIFs [skip ci]"
-            git pull --rebase
+            git pull --rebase -X theirs || {
+              git checkout --theirs images/*.gif
+              git add images/*.gif
+              git rebase --continue
+            }
             git push
           fi

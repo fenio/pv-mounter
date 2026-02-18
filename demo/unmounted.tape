@@ -8,7 +8,7 @@ Set Height 600
 Set TypingSpeed 180ms
 Set WindowBar Colorful
 Set WaitTimeout 30s
-Output ../unmounted.gif
+Output ../ssh-rwx.gif
 Sleep 3s
 Type "kubectl get pvc"
 Enter

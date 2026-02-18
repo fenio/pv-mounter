@@ -50,7 +50,7 @@ It performs a few tasks. In the case of volumes with RWX (ReadWriteMany) access 
 * Creates a port-forward to make it locally accessible.
 * Mounts the volume locally using SSHFS.
 
-[pv-mounter](pv-mounter.png)
+![pv-mounter](pv-mounter.png)
 
 For already mounted RWO volumes:
 

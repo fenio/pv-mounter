@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: demo-pod
+  name: demo
 spec:
   containers:
     - name: busybox
@@ -13,4 +13,4 @@ spec:
   volumes:
     - name: data
       persistentVolumeClaim:
-        claimName: mounted-pvc
+        claimName: rwo-pvc

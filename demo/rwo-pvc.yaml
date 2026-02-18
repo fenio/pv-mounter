@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mounted-pvc
+  name: rwo-pvc
 spec:
   accessModes:
     - ReadWriteOnce

@@ -55,21 +55,21 @@ jobs:
       - name: Create demo resources
         run: |
           # Apply demo resources in default namespace
-          kubectl apply -f demo/unmounted-pvc.yaml
-          kubectl apply -f demo/mounted-pvc.yaml
+          kubectl apply -f demo/rwx-pvc.yaml
+          kubectl apply -f demo/rwo-pvc.yaml
           kubectl apply -f demo/mounted-pod.yaml
 
           # Wait for PVCs to be bound
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/unmounted-pvc --timeout=120s || true
-          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/mounted-pvc --timeout=120s
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/rwx-pvc --timeout=120s || true
+          kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/rwo-pvc --timeout=120s
 
-          # Wait for demo-pod to be ready
-          kubectl wait --for=condition=Ready pod/demo-pod --timeout=120s
+          # Wait for demo pod to be ready
+          kubectl wait --for=condition=Ready pod/demo --timeout=120s
 
-          # Populate mounted-pvc with sample data via demo-pod
-          kubectl exec demo-pod -- sh -c "touch /mnt/test/some-file && mkdir -p /mnt/test/some-directory"
+          # Populate rwo-pvc with sample data via demo pod
+          kubectl exec demo -- sh -c "touch /mnt/test/some-file && mkdir -p /mnt/test/some-directory"
 
-          # Populate unmounted-pvc with sample data via temporary pod
+          # Populate rwx-pvc with sample data via temporary pod
           cat <<'POPEOF' | kubectl apply -f -
           apiVersion: v1
           kind: Pod
@@ -87,7 +87,7 @@ jobs:
             volumes:
               - name: data
                 persistentVolumeClaim:
-                  claimName: unmounted-pvc
+                  claimName: rwx-pvc
           POPEOF
           kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/populate-pvc --timeout=120s
           kubectl delete pod populate-pvc

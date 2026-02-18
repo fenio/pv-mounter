@@ -8,7 +8,6 @@ Set Height 600
 Set TypingSpeed 180ms
 Set WindowBar Colorful
 Set WaitTimeout 30s
-Set Theme "Dracula"
 Output ../nfs.gif
 Sleep 3s
 Type "kubectl get pvc"
@@ -19,7 +18,7 @@ Type "kubectl get pod"
 Enter
 Wait
 Sleep 1s
-Type "sudo kubectl pv-mounter mount --backend nfs default unmounted-pvc foo"
+Type "sudo kubectl pv-mounter mount --backend nfs default rwx-pvc foo"
 Enter
 Wait
 Sleep 1s
@@ -27,11 +26,15 @@ Type "kubectl get pod"
 Enter
 Wait
 Sleep 1s
-Type "ls --color foo"
+Type "mount | grep foo"
 Enter
 Wait
 Sleep 1s
-Type "sudo kubectl pv-mounter clean --backend nfs default unmounted-pvc foo"
+Type "ls foo"
+Enter
+Wait
+Sleep 1s
+Type "sudo kubectl pv-mounter clean --backend nfs default rwx-pvc foo"
 Enter
 Wait
 Sleep 1s
@@ -39,7 +42,7 @@ Type "kubectl get pod"
 Enter
 Wait
 Sleep 1s
-Type "ls --color foo"
+Type "ls foo"
 Enter
 Wait
 Sleep 5s

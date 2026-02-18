@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: unmounted-pvc
+  name: rwx-pvc
 spec:
   accessModes:
     - ReadWriteMany

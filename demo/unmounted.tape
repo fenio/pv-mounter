@@ -8,7 +8,6 @@ Set Height 600
 Set TypingSpeed 180ms
 Set WindowBar Colorful
 Set WaitTimeout 30s
-Set Theme "Dracula"
 Output ../unmounted.gif
 Sleep 3s
 Type "kubectl get pvc"
@@ -19,23 +18,11 @@ Type "kubectl get pod"
 Enter
 Wait
 Sleep 1s
-Type "ls --color foo"
+Type "ls foo"
 Enter
 Wait
 Sleep 1s
-Type "kubectl pv-mounter mount default unmounted-pvc foo"
-Enter
-Wait
-Sleep 1s
-Type "kubectl get pod"
-Enter
-Wait
-Sleep 1s
-Type "ls --color foo"
-Enter
-Wait
-Sleep 1s
-Type "kubectl pv-mounter clean default unmounted-pvc foo"
+Type "kubectl pv-mounter mount default rwx-pvc foo"
 Enter
 Wait
 Sleep 1s
@@ -43,7 +30,23 @@ Type "kubectl get pod"
 Enter
 Wait
 Sleep 1s
-Type "ls --color foo"
+Type "mount | grep foo"
+Enter
+Wait
+Sleep 1s
+Type "ls foo"
+Enter
+Wait
+Sleep 1s
+Type "kubectl pv-mounter clean default rwx-pvc foo"
+Enter
+Wait
+Sleep 1s
+Type "kubectl get pod"
+Enter
+Wait
+Sleep 1s
+Type "ls foo"
 Enter
 Sleep 5s
 Ctrl+D

@@ -26,7 +26,7 @@ Type "kubectl get pod"
 Enter
 Wait
 Sleep 1s
-Type "ls foo"
+Type "ls --color foo"
 Enter
 Wait
 Sleep 1s
@@ -38,7 +38,7 @@ Type "kubectl get pod"
 Enter
 Wait
 Sleep 1s
-Type "ls foo"
+Type "ls --color foo"
 Enter
 Wait
 Sleep 5s

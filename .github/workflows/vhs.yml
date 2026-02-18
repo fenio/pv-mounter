@@ -98,11 +98,11 @@ jobs:
           # Create mount point (inside demo/ where tapes run)
           mkdir -p demo/foo
 
-      - name: Generate unmounted demo GIF
-        run: cd demo && vhs unmounted.tape
+      - name: Generate SSH RWX demo GIF
+        run: cd demo && vhs ssh-rwx.tape
 
-      - name: Generate mounted demo GIF
-        run: cd demo && vhs mounted.tape
+      - name: Generate SSH RWO demo GIF
+        run: cd demo && vhs ssh-rwo.tape
 
       - name: Make pv-mounter plugin available to root
         run: |
@@ -110,11 +110,11 @@ jobs:
           sudo cp "$KUBECONFIG" /root/.kube/config
           sudo cp ~/.krew/bin/kubectl-pv_mounter /usr/local/bin/
 
-      - name: Generate NFS demo GIF
-        run: cd demo && vhs nfs.tape
+      - name: Generate NFS RWX demo GIF
+        run: cd demo && vhs nfs-rwx.tape
 
-      - name: Generate NFS mounted demo GIF
-        run: cd demo && vhs nfs-mounted.tape
+      - name: Generate NFS RWO demo GIF
+        run: cd demo && vhs nfs-rwo.tape
 
       - name: Upload GIF artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

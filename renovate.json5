@@ -1,25 +1,33 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:base",
-    ":enablePreCommit"
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    ':enablePreCommit',
   ],
-  "ignorePaths": ["examples/**"],
-  "regexManagers": [
+  ignorePaths: [
+    'examples/**',
+  ],
+  customManagers: [
     {
-      "fileMatch": ["^\\.github/workflows/.+\\.ya?ml$"],
-      "matchStrings": [
-        "go-version:\\s*['\"]?(?<currentValue>\\d+\\.\\d+\\.\\d+)['\"]?"
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^\\.github/workflows/.+\\.ya?ml$/',
       ],
-      "datasourceTemplate": "golang-version",
-      "depNameTemplate": "golang"
+      matchStrings: [
+        'go-version:\\s*[\'"]?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\'"]?',
+      ],
+      datasourceTemplate: 'golang-version',
+      depNameTemplate: 'golang',
     },
     {
-      "fileMatch": ["^Makefile$"],
-      "matchStrings": [
-        "go get (?<depName>k8s\\.io/[^@]+)@(?<currentValue>.+?)\\s"
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^Makefile$/',
       ],
-      "datasourceTemplate": "go"
-    }
-  ]
+      matchStrings: [
+        'go get (?<depName>k8s\\.io/[^@]+)@(?<currentValue>.+?)\\s',
+      ],
+      datasourceTemplate: 'go',
+    },
+  ],
 }

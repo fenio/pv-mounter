@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+ignoreUntil = 2027-08-22
+reason = "The project uses x/crypto/ssh, not the affected and unmaintained openpgp package; govulncheck confirms it is not imported or reachable."

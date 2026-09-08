@@ -56,6 +56,7 @@ FROM debian:stable-slim@sha256:04634311a8d5fc442b6eb06d792293c4f3e2268652ca7634e
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
     liburcu8t64 libkrb5-3 libcap2 libcap2-bin libnfsidmap1 \
     libblkid1 libuuid1 libjemalloc2 libacl1 libdbus-1-3 libnsl2 && \

@@ -29,5 +29,27 @@
       ],
       datasourceTemplate: 'go',
     },
+    {
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^\\.github/workflows/test\\.yaml$/',
+      ],
+      matchStrings: [
+        'go install golang\\.org/x/vuln/cmd/govulncheck@(?<currentValue>v?\\d+\\.\\d+\\.\\d+)',
+      ],
+      datasourceTemplate: 'go',
+      depNameTemplate: 'golang.org/x/vuln',
+    },
+    {
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^\\.github/workflows/vhs\\.yml$/',
+      ],
+      matchStrings: [
+        'VHS_VERSION:\\s*[\'"](?<currentValue>\\d+\\.\\d+\\.\\d+)[\'"]',
+      ],
+      datasourceTemplate: 'github-releases',
+      depNameTemplate: 'charmbracelet/vhs',
+    },
   ],
 }

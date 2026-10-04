@@ -28,7 +28,7 @@ jobs:
 
       - name: Run vulnerability check
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
           govulncheck ./...
 
   test:

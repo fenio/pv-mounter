@@ -24,6 +24,8 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-26.04
+    env:
+      VHS_VERSION: '0.12.1'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,8 +51,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg ttyd zsh nfs-common sshfs
-          wget https://github.com/charmbracelet/vhs/releases/download/v0.10.0/vhs_0.10.0_amd64.deb
-          sudo dpkg -i vhs_0.10.0_amd64.deb
+          wget "https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_amd64.deb"
+          sudo dpkg -i "vhs_${VHS_VERSION}_amd64.deb"
 
       - name: Create demo resources
         run: |

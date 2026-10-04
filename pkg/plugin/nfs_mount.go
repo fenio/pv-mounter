@@ -14,12 +14,6 @@ import (
 const (
 	// DefaultNFSPort is the default NFS port
 	DefaultNFSPort int = 2049
-
-	// NFSImageVersion specifies the container image version for nfs-ganesha
-	NFSImageVersion = "latest"
-
-	// NFSImage is the default NFS container image
-	NFSImage = "bfenski/nfs-ganesha:" + NFSImageVersion
 )
 
 // setupNFSPortForwarding establishes port forwarding to a pod's NFS port.

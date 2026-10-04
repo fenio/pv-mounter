@@ -23,6 +23,13 @@ const (
 
 	// Image is the default container image
 	Image = "bfenski/volume-exposer:" + ImageVersion
+
+	// NFSImageVersion specifies the container image version for nfs-ganesha
+	NFSImageVersion = "9b99665f01"
+
+	// NFSImage is the default NFS container image
+	NFSImage = "bfenski/nfs-ganesha:" + NFSImageVersion
+
 	// DefaultUserGroup is the default user and group ID
 	DefaultUserGroup int64 = 2137
 	// DefaultSSHPort is the default SSH port for the SSH server

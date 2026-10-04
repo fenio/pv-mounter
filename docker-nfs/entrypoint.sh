@@ -6,6 +6,17 @@ set -e
 mkdir -p /tmp/ganesha
 CONF="/tmp/ganesha/ganesha.conf"
 
+# Standalone exposer pods run as root and preserve client identities. Ephemeral
+# containers run as the workload UID, so map every NFS client to that identity
+# instead of asking Ganesha to switch credentials it cannot safely restore.
+if [ "$(id -u)" -eq 0 ]; then
+    SQUASH_BLOCK="Squash = No_Root_Squash;"
+else
+    SQUASH_BLOCK="Squash = All_Squash;
+    Anonymous_uid = $(id -u);
+    Anonymous_gid = $(id -g);"
+fi
+
 # Populate /etc/mtab — some runtimes mount it as a symlink to /proc/self/mounts
 # which can't be written to (EINVAL). Replace the symlink with a regular file.
 if [ -L /etc/mtab ] || ! cat /proc/mounts > /etc/mtab 2>/dev/null; then
@@ -76,7 +87,7 @@ EXPORT {
     ${EXPORT_PATH}
     Pseudo = /volume;
     Access_Type = RW;
-    Squash = No_Root_Squash;
+    ${SQUASH_BLOCK}
     SecType = sys;
     Disable_ACL = true;
 

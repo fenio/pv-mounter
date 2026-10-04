@@ -94,7 +94,7 @@ Above, it's not true if you're using the --needs-root option or the NEEDS_ROOT e
 
 * NFS-Ganesha requires more capabilities than SSH (`SYS_ADMIN`, `DAC_READ_SEARCH`, `DAC_OVERRIDE`, `SYS_RESOURCE`, `CHOWN`, `FOWNER`, `SETUID`, `SETGID`) and runs with `seccompProfile: Unconfined`.
 * Standalone NFS pods run as root. Ephemeral NFS containers run as the workload pod's UID.
-* NFS exports use `No_Root_Squash` and `SecType = sys` (AUTH_SYS) — this is acceptable since traffic stays within the kubectl port-forward tunnel (localhost only).
+* Root NFS exposer pods preserve client identities with `No_Root_Squash`. Non-root ephemeral containers squash clients to the workload UID/GID so Ganesha accesses the PVC with the workload identity. Exports use `SecType = sys` (AUTH_SYS); this is acceptable since traffic stays within the kubectl port-forward tunnel (localhost only).
 
 ## Limitations
 

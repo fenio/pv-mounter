@@ -51,5 +51,16 @@
       datasourceTemplate: 'github-releases',
       depNameTemplate: 'charmbracelet/vhs',
     },
+    {
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^docker-nfs/Dockerfile$/',
+      ],
+      matchStrings: [
+        'ARG NFS_GANESHA_VERSION=(?<currentValue>V\\d+\\.\\d+)',
+      ],
+      datasourceTemplate: 'github-tags',
+      depNameTemplate: 'nfs-ganesha/nfs-ganesha',
+    },
   ],
 }

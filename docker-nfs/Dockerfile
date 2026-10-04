@@ -1,27 +1,28 @@
-### Stage 1: Build NFS-Ganesha 9.5 from source
+### Stage 1: Build NFS-Ganesha from source
 FROM debian:stable-slim@sha256:5bc3287b25407c965a30f38e32603dc253a3869e1b12a21ac09bfc27fd8b13ce AS builder
+
+ARG NFS_GANESHA_VERSION=V15.7
+ARG BUILD_JOBS=2
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git cmake gcc g++ make \
     bison flex \
-    libdbus-1-dev liburcu-dev libkrb5-dev libcap-dev \
+    libdbus-1-dev liburcu-dev libkrb5-dev libcap-dev libssl-dev \
     libnfsidmap-dev libblkid-dev uuid-dev libnsl-dev \
     libjemalloc-dev libacl1-dev \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
-RUN git clone --branch V9.5 --depth 1 --recurse-submodules \
+RUN git clone --branch "${NFS_GANESHA_VERSION}" --depth 1 --recurse-submodules \
     https://github.com/nfs-ganesha/nfs-ganesha.git
 
 WORKDIR /build/nfs-ganesha/src
 
-# Prevent Ganesha from dropping capabilities at startup.
-# lower_my_caps() replaces all capabilities with a minimal set, which
-# strips the DAC_READ_SEARCH/DAC_OVERRIDE caps needed for non-root
-# ephemeral containers to access volume files.
-RUN sed -i 's/lower_my_caps();/\/\/ lower_my_caps(); \/\/ patched: keep container caps/' MainNFSD/nfs_init.c
+# Preserve the full capability set granted to non-root ephemeral containers.
+RUN sed -i 's/\.drop_caps = true/\.drop_caps = false/' MainNFSD/nfs_main.c && \
+    grep -q '\.drop_caps = false' MainNFSD/nfs_main.c
 
 RUN mkdir build && cd build && cmake \
     -DCMAKE_BUILD_TYPE=Release \
@@ -48,7 +49,7 @@ RUN mkdir build && cd build && cmake \
     -DUSE_GUI_ADMIN_TOOLS=OFF \
     -DUSE_ADMIN_TOOLS=OFF \
     .. && \
-    make -j$(nproc) && \
+    make -j"${BUILD_JOBS}" && \
     make DESTDIR=/install install
 
 ### Stage 2: Runtime image
@@ -58,7 +59,7 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-    liburcu8t64 libkrb5-3 libcap2 libcap2-bin libnfsidmap1 \
+    liburcu8t64 libkrb5-3 libcap2 libcap2-bin libnfsidmap1 libssl3t64 \
     libblkid1 libuuid1 libjemalloc2 libacl1 libdbus-1-3 libnsl2 && \
     apt-get clean && \
     apt-get autoremove -y && \

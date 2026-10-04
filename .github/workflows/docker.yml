@@ -13,7 +13,7 @@ on:
 
 jobs:
   filter:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       build-standard: ${{ steps.filter.outputs.standard }}
       build-nfs: ${{ steps.filter.outputs.nfs }}
@@ -44,7 +44,7 @@ jobs:
   build-standard:
     needs: filter
     if: github.event_name != 'push' || needs.filter.outputs.build-standard == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -78,7 +78,7 @@ jobs:
   build-nfs:
     needs: filter
     if: github.event_name != 'push' || needs.filter.outputs.build-nfs == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1

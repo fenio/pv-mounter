@@ -7,6 +7,10 @@ spec:
   - name: container
     image: busybox
     command: [ "sleep", "3600" ]
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      runAsNonRoot: true
     volumeMounts:
     - mountPath: "/mnt/test"
       name: test-volume

@@ -164,7 +164,7 @@ jobs:
           ./bin/pv-mounter clean default pvc-9 foo
 
       - name: Pre-pull NFS image into minikube
-        run: minikube image pull bfenski/nfs-ganesha:9b99665f01
+        run: minikube image pull bfenski/nfs-ganesha:cbbbb2505a
 
       - name: '[TEST-NFS] PVC with RWX access mode'
         run: |

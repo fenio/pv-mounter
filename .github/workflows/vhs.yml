@@ -36,7 +36,6 @@ jobs:
         id: kubesolo
         uses: fenio/setup-kubesolo@c1b74d8908188836021c63dcbb11fd3747996853 # v5.0.4
         with:
-          version: 'v1.2.1'
           local-storage-shared-path: '/opt/local-path-provisioner'
 
       - name: Setup Krew

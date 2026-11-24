@@ -1,5 +1,5 @@
 ### Stage 1: Build NFS-Ganesha from source
-FROM debian:stable-slim@sha256:fbfb4059d2127120aa05b6e6064523d2102552f0cf0026ddf0701c12f1f8f3e0 AS builder
+FROM debian:stable-slim@sha256:a64d9dbf633e2a2503afac76be521dc25d9b5765150b30d31a3914d4ae969cab AS builder
 
 ARG NFS_GANESHA_VERSION=V15.7
 ARG BUILD_JOBS=2
@@ -53,7 +53,7 @@ RUN mkdir build && cd build && cmake \
     make DESTDIR=/install install
 
 ### Stage 2: Runtime image
-FROM debian:stable-slim@sha256:fbfb4059d2127120aa05b6e6064523d2102552f0cf0026ddf0701c12f1f8f3e0
+FROM debian:stable-slim@sha256:a64d9dbf633e2a2503afac76be521dc25d9b5765150b30d31a3914d4ae969cab
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN apt-get update && \

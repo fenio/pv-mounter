@@ -19,13 +19,13 @@ import (
 
 const (
 	// ImageVersion specifies the container image version for volume-exposer
-	ImageVersion = "5829e841e8"
+	ImageVersion = "78849df5c4"
 
 	// Image is the default container image
 	Image = "bfenski/volume-exposer:" + ImageVersion
 
 	// NFSImageVersion specifies the container image version for nfs-ganesha
-	NFSImageVersion = "5829e841e8"
+	NFSImageVersion = "78849df5c4"
 
 	// NFSImage is the default NFS container image
 	NFSImage = "bfenski/nfs-ganesha:" + NFSImageVersion
